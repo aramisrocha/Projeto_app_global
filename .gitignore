@@ -15,3 +15,11 @@ terraform.lock.hcl
 Projeto.txt
 bkp/
 bkp/*
+
+
+# Terraform
+**/.terraform/
+**/.terragrunt-cache/
+*.tfstate
+*.tfstate.backup
+crash.log
