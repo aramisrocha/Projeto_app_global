@@ -1,0 +1,17 @@
+# Diretório com plugins e configurações locais
+.terraform/
+
+# Arquivos de estado (nunca versionar!)
+terraform.tfstate
+terraform.tfstate.backup
+
+# Lock file (opcional ignorar, mas em times pode ser útil versionar)
+terraform.lock.hcl
+
+# Planos temporários
+*.tfplan
+
+# Anotações
+Projeto.txt
+bkp/
+bkp/*
