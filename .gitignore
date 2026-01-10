@@ -6,6 +6,7 @@ terraform.tfstate
 terraform.tfstate.backup
 
 # Lock file (opcional ignorar, mas em times pode ser útil versionar)
+.terraform.lock.hcl
 terraform.lock.hcl
 
 # Planos temporários
