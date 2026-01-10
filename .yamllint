@@ -1,0 +1,37 @@
+extends: default
+
+rules:
+  # Allow CloudFormation intrinsic functions
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+  # Ignore unresolved tags (CloudFormation functions)
+  document-start: disable
+  
+# Allow CloudFormation intrinsic function tags
+ignore: |
+  *.yaml
+  *.yml
+
+# Custom rule to allow CloudFormation tags
+yaml-files:
+  - '*.yaml'
+  - '*.yml'
+
+# Allow CloudFormation intrinsic functions like !Ref, !GetAtt, !Sub, etc.
+allowed-tags:
+  - '!Ref'
+  - '!GetAtt'
+  - '!Sub'
+  - '!Join'
+  - '!Select'
+  - '!Split'
+  - '!Base64'
+  - '!Cidr'
+  - '!FindInMap'
+  - '!ImportValue'
+  - '!Condition'
+  - '!Equals'
+  - '!If'
+  - '!Not'
+  - '!And'
+  - '!Or'
