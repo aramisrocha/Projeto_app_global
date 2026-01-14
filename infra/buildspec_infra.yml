@@ -22,6 +22,10 @@ phases:
   pre_build:
     commands:
       - echo "Validando template..."
+      - echo "TEMPLATE_FILE=[$TEMPLATE_FILE]"
+      - echo "TEMPLATE_BUCKET=[$TEMPLATE_BUCKET]"
+      - ls -la infra || true
+      - test -f "$TEMPLATE_FILE"
       - aws cloudformation validate-template --template-body file://$TEMPLATE_FILE
 
   build:
