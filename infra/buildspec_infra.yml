@@ -1,0 +1,53 @@
+version: 0.2
+
+env:
+  variables:
+    STACK_NAME: "app-global-infra"
+    TEMPLATE_FILE: "infra/root.yaml"
+    PACKAGED_FILE: "infra/packaged.yaml"
+
+    # Bucket onde o CloudFormation "package" vai subir os templates (nested stacks).
+    # Use um bucket na MESMA região do deploy.
+    TEMPLATE_BUCKET: "aramis-projeto-app-global"
+    TEMPLATE_PREFIX: "app-global/infra"
+
+    # Nome da role de execução do CloudFormation (a que você citou)
+    CFN_EXEC_ROLE_NAME: "Role_app_global_infra"
+
+phases:
+  install:
+    commands:
+      - aws --version
+
+  pre_build:
+    commands:
+      - echo "Validando template..."
+      - aws cloudformation validate-template --template-body file://$TEMPLATE_FILE
+
+  build:
+    commands:
+      - echo "Obtendo Account ID..."
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+      - echo "Montando ARN da Execution Role do CloudFormation..."
+      - CFN_EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${CFN_EXEC_ROLE_NAME}"
+      - echo "CFN_EXEC_ROLE_ARN=${CFN_EXEC_ROLE_ARN}"
+
+      - echo "Packaging (upload para S3)..."
+      - aws cloudformation package \
+          --template-file "$TEMPLATE_FILE" \
+          --s3-bucket "$TEMPLATE_BUCKET" \
+          --s3-prefix "$TEMPLATE_PREFIX" \
+          --output-template-file "$PACKAGED_FILE"
+
+      - echo "Deploy (Create/Update Stack) usando Execution Role..."
+      - aws cloudformation deploy \
+          --stack-name "$STACK_NAME" \
+          --template-file "$PACKAGED_FILE" \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --role-arn "$CFN_EXEC_ROLE_ARN" \
+          --no-fail-on-empty-changeset
+
+artifacts:
+  files:
+    - infra/packaged.yaml
