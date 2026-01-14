@@ -1,19 +1,5 @@
 version: 0.2
 
-env:
-  variables:
-    STACK_NAME: "app-global-infra"
-    TEMPLATE_FILE: "infra/root.yaml"
-    PACKAGED_FILE: "infra/packaged.yaml"
-
-    # Bucket onde o CloudFormation "package" vai subir os templates 
-    # Use um bucket na MESMA região do deploy. test
-    TEMPLATE_BUCKET: "aramis-projeto-app-global"
-    TEMPLATE_PREFIX: "app-global/infra"
-
-    # Nome da role de execução do CloudFormation 
-    CFN_EXEC_ROLE_NAME: "Role_app_global_infra"
-
 phases:
   install:
     commands:
@@ -22,32 +8,29 @@ phases:
   pre_build:
     commands:
       - echo "Validando template..."
-      - echo "TEMPLATE_FILE=[$TEMPLATE_FILE]"
-      - echo "TEMPLATE_BUCKET=[$TEMPLATE_BUCKET]"
+      - echo "TEMPLATE_FILE=[infra/root.yaml]"
+      - echo "TEMPLATE_BUCKET=[aramis-projeto-app-global]"
       - ls -la infra || true
-      - test -f "$TEMPLATE_FILE"
-      - aws cloudformation validate-template --template-body file://$TEMPLATE_FILE
+      - test -f "infra/root.yaml"
+      - aws cloudformation validate-template --template-body file://infra/root.yaml
 
   build:
     commands:
-      - echo "Obtendo Account ID..."
-      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-
       - echo "Montando ARN da Execution Role do CloudFormation..."
-      - CFN_EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${CFN_EXEC_ROLE_NAME}"
+      - CFN_EXEC_ROLE_ARN="arn:aws:iam::181317788381:role/Role_app_global_infra"
       - echo "CFN_EXEC_ROLE_ARN=${CFN_EXEC_ROLE_ARN}"
 
       - echo "Packaging (upload para S3)..."
       - aws cloudformation package \
-          --template-file "$TEMPLATE_FILE" \
-          --s3-bucket "$TEMPLATE_BUCKET" \
-          --s3-prefix "$TEMPLATE_PREFIX" \
-          --output-template-file "$PACKAGED_FILE"
+          --template-file "infra/root.yaml" \
+          --s3-bucket "aramis-projeto-app-global" \
+          --s3-prefix "app-global/infra" \
+          --output-template-file "infra/packaged.yaml"
 
       - echo "Deploy (Create/Update Stack) usando Execution Role..."
       - aws cloudformation deploy \
-          --stack-name "$STACK_NAME" \
-          --template-file "$PACKAGED_FILE" \
+          --stack-name "app-global-infra" \
+          --template-file "infra/packaged.yaml" \
           --capabilities CAPABILITY_NAMED_IAM \
           --role-arn "$CFN_EXEC_ROLE_ARN" \
           --no-fail-on-empty-changeset
