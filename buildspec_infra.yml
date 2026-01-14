@@ -7,7 +7,7 @@ env:
     PACKAGED_FILE: "infra/packaged.yaml"
 
     # Bucket onde o CloudFormation "package" vai subir os templates 
-    # Use um bucket na MESMA região do deploy. test
+    # Use um bucket na MESMA região do deploy. teste
     TEMPLATE_BUCKET: "aramis-projeto-app-global"
     TEMPLATE_PREFIX: "app-global/infra"
 
