@@ -51,7 +51,7 @@ Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      # O arquivo precisa estar no S3 nesse caminho:
+      # O arquivo precisa estar no S3 nesse caminh:
       # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
       #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
       TemplateURL: templates/network.yaml
