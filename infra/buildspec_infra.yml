@@ -41,7 +41,7 @@ phases:
       - aws cloudformation package --template-file "infra/root.yaml" --s3-bucket "aramis-projeto-app-global" --s3-prefix "app-global/infra" --output-template-file "infra/packaged.yaml"
 
       - echo "Deploy (Create/Update Stack) usando Execution Role..."
-      - aws cloudformation deploy --stack-name "app-global-infra" --template-file "infra/packaged.yaml" --capabilities CAPABILITY_NAMED_IAM --role-arn "arn:aws:iam::181317788381:role/Role_app_global_infra" --no-fail-on-empty-changeset
+      - aws cloudformation deploy --debug --stack-name "app-global-infra" --template-file "infra/packaged.yaml" --capabilities CAPABILITY_NAMED_IAM --role-arn "arn:aws:iam::181317788381:role/Role_app_global_infra" --no-fail-on-empty-changeset
 
 
 artifacts:
