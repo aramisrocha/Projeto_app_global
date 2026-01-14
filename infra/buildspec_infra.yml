@@ -11,7 +11,7 @@ env:
     TEMPLATE_BUCKET: "aramis-projeto-app-global"
     TEMPLATE_PREFIX: "app-global/infra"
 
-    # Nome da role de execução do CloudFormation (a que você citou)
+    # Nome da role de execução do CloudFormation 
     CFN_EXEC_ROLE_NAME: "Role_app_global_infra"
 
 phases:
