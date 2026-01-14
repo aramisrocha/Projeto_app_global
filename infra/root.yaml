@@ -53,7 +53,8 @@ Resources:
     Properties:
       # O arquivo precisa estar no S3 nesse caminho:
       # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
-      TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
+      #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
+      TemplateURL: templates/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
