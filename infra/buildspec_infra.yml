@@ -6,7 +6,7 @@ env:
     TEMPLATE_FILE: "infra/root.yaml"
     PACKAGED_FILE: "infra/packaged.yaml"
 
-    # Bucket onde o CloudFormation "package" vai subir os templates (nested stacks).
+    # Bucket onde o CloudFormation "package" vai subir os templates 
     # Use um bucket na MESMA região do deploy.
     TEMPLATE_BUCKET: "aramis-projeto-app-global"
     TEMPLATE_PREFIX: "app-global/infra"
