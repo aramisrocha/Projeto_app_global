@@ -5,12 +5,12 @@ Description: "Root stack - creates Network layer using nested stack (templates/n
 Parameters:
   ProjectName:
     Type: String
-    Default: "app_global"
+    Default: "myproject"
     Description: "Prefix used in resource names/tags"
 
   Environment:
     Type: String
-    Default: "prod"
+    Default: "dev"
     AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Environment name"
 

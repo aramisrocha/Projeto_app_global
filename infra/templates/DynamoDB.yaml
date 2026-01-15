@@ -45,7 +45,7 @@ Resources:
       TableName: !If
         - HasCustomTableName
         - !Ref TableName
-        - !Sub "${ProjectName}-${Environment}"
+        - !Sub "${ProjectName}-${Environment}-points"
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
