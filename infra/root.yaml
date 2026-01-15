@@ -64,6 +64,15 @@ Resources:
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport
 
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/DynamoDB.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+
+
 Outputs:
   VpcId:
     Description: "VPC ID (from nested NetworkStack)"

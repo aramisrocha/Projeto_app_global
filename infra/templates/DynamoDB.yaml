@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "DynamoDB - Sistema de Pontos (single-table design)"
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: "app-global"
+
+  Environment:
+    Type: String
+    AllowedValues: [dev, hml, prd]
+    Description: "Prod"
+
+  TableName:
+    Type: String
+    Default: ""
+    Description: "Opcional: nome da tabela. Se vazio, será gerado automaticamente."
+
+  EnableTTL:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: "Habilitar TTL na tabela"
+
+  TTLAttributeName:
+    Type: String
+    Default: "ttl"
+    Description: "Nome do atributo TTL (Unix epoch em segundos)"
+
+  EnablePITR:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: "Habilitar Point-in-time recovery (PITR)"
+
+Conditions:
+  HasCustomTableName: !Not [!Equals [!Ref TableName, ""]]
+  TTLIsEnabled: !Equals [!Ref EnableTTL, "true"]
+  PITRIsEnabled: !Equals [!Ref EnablePITR, "true"]
+
+Resources:
+  PointsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !If
+        - HasCustomTableName
+        - !Ref TableName
+        - !Sub "${ProjectName}-${Environment}-points"
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        # Chave primária (single-table)
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+
+        # Para GSI de consultas comuns do sistema de pontos
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+      SSESpecification:
+        SSEEnabled: true
+
+      TimeToLiveSpecification: !If
+        - TTLIsEnabled
+        - AttributeName: !Ref TTLAttributeName
+          Enabled: true
+        - !Ref "AWS::NoValue"
+
+      PointInTimeRecoverySpecification: !If
+        - PITRIsEnabled
+        - PointInTimeRecoveryEnabled: true
+        - !Ref "AWS::NoValue"
+
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: "points"
+
+Outputs:
+  PointsTableName:
+    Description: "Nome da tabela DynamoDB"
+    Value: !Ref PointsTable
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-PointsTableName"
+
+  PointsTableArn:
+    Description: "ARN da tabela DynamoDB"
+    Value: !GetAtt PointsTable.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-PointsTableArn"
+
+  PointsTableStreamArn:
+    Description: "ARN do Stream (para integrações / global tables no futuro)"
+    Value: !GetAtt PointsTable.StreamArn
