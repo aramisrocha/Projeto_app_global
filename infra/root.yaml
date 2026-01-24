@@ -71,6 +71,26 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
+# ECS
+  EcsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/ECS.yaml
+      Parameters:
+        ProjectName: "app-global"
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
+        AlbSecurityGroupId: !GetAtt NetworkStack.Outputs.AlbSecurityGroupId
+        AlbListenerArn: !GetAtt NetworkStack.Outputs.AlbHttpListenerArn
+        ListenerRulePriority: 10
+        PathPattern: "/*"
+        ContainerPort: 8000
+        DesiredCount: 2
+        ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
+        HealthCheckPath: "/health"
+        EnvironmentEmployeesTable: "Employees"
+        EnvironmentClockTable: "ClockRecords"
 
 
 Outputs:
