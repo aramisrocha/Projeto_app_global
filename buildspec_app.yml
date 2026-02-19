@@ -24,7 +24,7 @@ phases:
       
 
 
-      # Versão: commit curto + timestamp (bom pra rastreabilidade)
+      # Versão: commit curto + timestamp
       - export COMMIT_HASH=$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | cut -c 1-7)
       - export BUILD_TS=$(date +%Y%m%d%H%M%S)
       - export IMAGE_TAG="${COMMIT_HASH}-${BUILD_TS}"
