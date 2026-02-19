@@ -16,7 +16,7 @@ env:
 phases:
   pre_build:
     commands:
-      - echo "== Pre-build: set vars =="
+      #- echo "== Pre-build: set vars =="
       - aws --version
       #- export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       #- export ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
