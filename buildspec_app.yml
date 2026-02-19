@@ -1,0 +1,56 @@
+version: 0.2
+
+env:
+  variables:
+    #AWS_DEFAULT_REGION: sa-east-1
+    ECR_REPO_NAME: app-global-api
+    IMAGE_NAME: app-global-api
+    AWS_DEFAULT_REGION: us-east-1
+    ECR_REPO_URI: 181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global
+  # Se preferir, defina AWS_ACCOUNT_ID como variável no CodeBuild
+  # e remova o comando que pega via STS
+  # variables:
+  #   AWS_ACCOUNT_ID: "123456789012"
+
+phases:
+  pre_build:
+    commands:
+      - echo "== Pre-build: set vars =="
+      - aws --version
+      #- export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      #- export ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      #- export REPO_URI="${ECR_URI}/${ECR_REPO_NAME}"
+
+      # Versão: commit curto + timestamp (bom pra rastreabilidade)
+      - export COMMIT_HASH=$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | cut -c 1-7)
+      - export BUILD_TS=$(date +%Y%m%d%H%M%S)
+      - export IMAGE_TAG="${COMMIT_HASH}-${BUILD_TS}"
+
+      - echo "Logging in to ECR..."
+      #- aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_URI}
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 181317788381.dkr.ecr.us-east-1.amazonaws.com
+  build:
+    commands:
+      - echo "== Build =="
+      - echo "Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}"
+      - docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f app/Dockerfile app/
+
+      - echo "Tagging..."
+      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REPO_URI}:${IMAGE_TAG}
+      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REPO_URI}:latest
+
+  post_build:
+    commands:
+      - echo "== Post-build: push =="
+      - docker push ${REPO_URI}:${IMAGE_TAG}
+      - docker push ${REPO_URI}:latest
+
+      - echo "Generating imagedefinitions.json (ECS deploy helper)"
+      - printf '[{"name":"%s","imageUri":"%s"}]' "${IMAGE_NAME}" "${REPO_URI}:${IMAGE_TAG}" > imagedefinitions.json
+
+      - echo "Done. Image pushed:"
+      - echo "${REPO_URI}:${IMAGE_TAG}"
+
+artifacts:
+  files:
+    - imagedefinitions.json
