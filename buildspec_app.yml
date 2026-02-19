@@ -44,7 +44,7 @@ phases:
 
   post_build:
     commands:
-      - echo "== Post-build: push =="
+      #- echo "== Post-build: push =="
       - docker push ${REPO_URI}:${IMAGE_TAG}
       - docker push ${REPO_URI}:latest
 
