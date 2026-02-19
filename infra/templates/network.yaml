@@ -160,3 +160,4 @@ Outputs:
   InternetGatewayId:
     Description: "Internet Gateway ID"
     Value: !Ref InternetGateway
+

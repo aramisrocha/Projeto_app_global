@@ -64,6 +64,16 @@ Resources:
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport
 
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/alb.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]    
+
   DynamoDBStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -81,12 +91,13 @@ Resources:
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
-        AlbSecurityGroupId: !GetAtt NetworkStack.Outputs.AlbSecurityGroupId
-        AlbListenerArn: !GetAtt NetworkStack.Outputs.AlbHttpListenerArn
+        AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+        AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ListenerRulePriority: 10
         PathPattern: "/*"
         ContainerPort: 8000
         DesiredCount: 2
+        AssignPublicIp: "DISABLED"
         ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"

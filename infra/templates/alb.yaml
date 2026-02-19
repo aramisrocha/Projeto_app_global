@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ALB Stack (Security Group + ALB + HTTP Listener + Target Group)"
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AlbIngressCidr:
+    Type: String
+    Default: "0.0.0.0/0"
+    Description: "CIDR allowed to access ALB (HTTP 80)."
+
+  # Porta do container no ECS (onde sua aplicação escuta)
+  TargetPort:
+    Type: Number
+    Default: 8080
+
+  # Path de health check do seu app (ajuste conforme sua app)
+  HealthCheckPath:
+    Type: String
+    Default: "/health"
+
+Resources:
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName}-${Environment}-alb-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref AlbIngressCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-alb-sg"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-alb"
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-alb"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+
+
+  AlbHttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+      - Type: fixed-response
+        FixedResponseConfig:
+          StatusCode: "404"
+          ContentType: "text/plain"
+          MessageBody: "No rule matched"
+
+Outputs:
+  AlbSecurityGroupId:
+    Description: "ALB Security Group ID"
+    Value: !Ref AlbSecurityGroup
+
+  AlbHttpListenerArn:
+    Description: "ALB HTTP Listener ARN"
+    Value: !Ref AlbHttpListener
+
+  AlbArn:
+    Description: "ALB ARN"
+    Value: !Ref ApplicationLoadBalancer
+
+  AlbDnsName:
+    Description: "ALB DNS Name"
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  #AlbTargetGroupArn:
+  #  Description: "ALB Target Group ARN (use no ECS Service -> LoadBalancers)"
+  #  Value: !Ref AlbTargetGroup
+

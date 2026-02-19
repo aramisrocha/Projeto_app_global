@@ -1,20 +1,41 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, timezone
+from boto3.dynamodb.conditions import Key
 
 import boto3
 import os
+
+
+app = FastAPI(title="Registro de Ponto - Global Lab")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Nome das tabelas (pode vir de variável de ambiente no ECS)
 EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "Employees")
 CLOCK_TABLE = os.getenv("CLOCK_TABLE", "ClockRecords")
 
-dynamodb = boto3.resource("dynamodb")
+#dynamodb = boto3.resource("dynamodb")
+dynamodb = boto3.resource(
+    "dynamodb",
+    endpoint_url="http://192.168.10.100:8000",
+    region_name="us-east-1",
+    aws_access_key_id="dummy",
+    aws_secret_access_key="dummy",
+)
 employees_table = dynamodb.Table(EMPLOYEES_TABLE)
 clock_table = dynamodb.Table(CLOCK_TABLE)
 
-app = FastAPI(title="Registro de Ponto - Global Lab")
+#app = FastAPI(title="Registro de Ponto - Global Lab")
 
 
 # ==== MODELOS ====
@@ -91,13 +112,23 @@ def register_clock(clock: ClockCreate):
     return item
 
 
+#@app.get("/clock/{employee_id}", response_model=List[ClockRecord])
+#def list_clock_records(employee_id: str):
+#    resp = clock_table.query(
+#        KeyConditionExpression="employeeId = :eid",
+#        ExpressionAttributeValues={":eid": employee_id},
+#        Limit=20,  # últimos 20 registros, por exemplo
+#        ScanIndexForward=False,  # ordenação decrescente (mais recente primeiro)
+#   )
+#    items = resp.get("Items", [])
+    #return items
+
+
 @app.get("/clock/{employee_id}", response_model=List[ClockRecord])
 def list_clock_records(employee_id: str):
     resp = clock_table.query(
-        KeyConditionExpression="employeeId = :eid",
-        ExpressionAttributeValues={":eid": employee_id},
-        Limit=20,  # últimos 20 registros, por exemplo
-        ScanIndexForward=False,  # ordenação decrescente (mais recente primeiro)
+        KeyConditionExpression=Key("employeeId").eq(employee_id),
+        Limit=20,
+        ScanIndexForward=False,
     )
-    items = resp.get("Items", [])
-    return items
+    return resp.get("Items", [])
