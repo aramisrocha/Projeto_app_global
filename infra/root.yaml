@@ -72,7 +72,8 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]    
+        #PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds    
 
   DynamoDBStack:
     Type: AWS::CloudFormation::Stack
