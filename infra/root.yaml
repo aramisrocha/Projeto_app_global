@@ -90,7 +90,8 @@ Resources:
       Parameters:
         ProjectName: "app-global"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
         AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
