@@ -100,7 +100,7 @@ Resources:
         PathPattern: "/*"
         ContainerPort: 8000
         DesiredCount: 2
-        AssignPublicIp: "DISABLED"
+        AssignPublicIp: "ENABLED"
         ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
