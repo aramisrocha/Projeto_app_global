@@ -1,0 +1,271 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, IAM Roles, Logs"
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: "app-global"
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "Subnets privadas para rodar o ECS Service (Fargate)"
+
+  ServiceSecurityGroupEgressCidr:
+    Type: String
+    Default: "0.0.0.0/0"
+
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: "Security Group do ALB (criado no network.yaml)"
+
+  AlbListenerArn:
+    Type: String
+    Description: "Listener ARN do ALB (ex: HTTP 80) - criado no network.yaml"
+
+  ListenerRulePriority:
+    Type: Number
+    Default: 10
+    Description: "Prioridade da regra no listener (deve ser única)"
+
+  PathPattern:
+    Type: String
+    Default: "/*"
+    Description: "Path pattern do listener rule"
+
+  ContainerPort:
+    Type: Number
+    Default: 8000
+
+  DesiredCount:
+    Type: Number
+    Default: 2
+
+  Cpu:
+    Type: String
+    Default: "256"
+    AllowedValues: ["256", "512", "1024", "2048", "4096"]
+
+  Memory:
+    Type: String
+    Default: "512"
+    AllowedValues: ["512", "1024", "2048", "3072", "4096", "5120", "6144", "7168", "8192", "16384", "30720"]
+
+  AssignPublicIp:
+    Type: String
+    Default: "DISABLED"
+    AllowedValues: ["ENABLED", "DISABLED"]
+
+  ImageUri:
+    Type: String
+    Default: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
+    Description: "Imagem completa (repo:tag). Ex: 1813...amazonaws.com/app_global:latest"
+
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+
+  HealthCheckPath:
+    Type: String
+    Default: "/health"
+
+  EnvironmentEmployeesTable:
+    Type: String
+    Default: "Employees"
+
+  EnvironmentClockTable:
+    Type: String
+    Default: "ClockRecords"
+
+Resources:
+  # =========================
+  # Log Group
+  # =========================
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ProjectName}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  # =========================
+  # IAM Roles
+  # =========================
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-ecs-exec-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-ecs-task-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-ecs-task-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # (Opcional) Exemplo básico - ajuste depois conforme seu app:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: "*"
+
+  # =========================
+  # ECS Cluster
+  # =========================
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-cluster"
+
+  # =========================
+  # Security Group do Service
+  # =========================
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "SG for ${ProjectName} ECS Service"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: "Allow ALB to reach ECS tasks"
+          IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref AlbSecurityGroupId
+      SecurityGroupEgress:
+        - Description: "Egress"
+          IpProtocol: -1
+          CidrIp: !Ref ServiceSecurityGroupEgressCidr
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecs-svc-sg"
+
+  # =========================
+  # Target Group (IP) + Listener Rule
+  # =========================
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ProjectName}-tg"
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: !Ref ContainerPort
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: !Ref HealthCheckPath
+      Matcher:
+        HttpCode: "200-399"
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref AlbListenerArn
+      Priority: !Ref ListenerRulePriority
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - !Ref PathPattern
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref AppTargetGroup
+
+  # =========================
+  # Task Definition
+  # =========================
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ProjectName}-task"
+      Cpu: !Ref Cpu
+      Memory: !Ref Memory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ContainerDefinitions:
+        - Name: !Sub "${ProjectName}-container"
+          Image: !Ref ImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          Environment:
+            - Name: EMPLOYEES_TABLE
+              Value: !Ref EnvironmentEmployeesTable
+            - Name: CLOCK_TABLE
+              Value: !Ref EnvironmentClockTable
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref AppLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  # =========================
+  # ECS Service
+  # =========================
+  EcsService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerRule
+    Properties:
+      ServiceName: !Sub "${ProjectName}-service"
+      Cluster: !Ref EcsCluster
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      TaskDefinition: !Ref TaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Ref PrivateSubnetIds
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          AssignPublicIp: !Ref AssignPublicIp
+      LoadBalancers:
+        - ContainerName: !Sub "${ProjectName}-container"
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref AppTargetGroup
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+
+Outputs:
+  ClusterName:
+    Value: !Ref EcsCluster
+
+  ServiceName:
+    Value: !Ref EcsService
+
+  TargetGroupArn:
+    Value: !Ref AppTargetGroup
+
+  ServiceSecurityGroupId:
+    Value: !Ref ServiceSecurityGroup
+
+  TaskExecutionRoleArn:
+    Value: !GetAtt EcsTaskExecutionRole.Arn
+
+  TaskRoleArn:
+    Value: !GetAtt EcsTaskRole.Arn

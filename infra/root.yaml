@@ -1,4 +1,4 @@
-# CloudFormation Template
+# CloudFormation Template a
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Root stack - creates Network layer using nested stack (templates/network.yaml)"
 
@@ -51,9 +51,10 @@ Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      # O arquivo precisa estar no S3 nesse caminho:
+      # O arquivo precisa estar no S3 nesse caminh:
       # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
-      TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
+      #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
+      TemplateURL: templates/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
@@ -62,6 +63,49 @@ Resources:
         PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport
+
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/alb.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        #PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds    
+
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/DynamoDB.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+# ECS
+  EcsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/ECS.yaml
+      Parameters:
+        ProjectName: "app-global"
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
+        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
+        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
+        AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+        AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
+        ListenerRulePriority: 10
+        PathPattern: "/*"
+        ContainerPort: 8000
+        DesiredCount: 2
+        AssignPublicIp: "ENABLED"
+        ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
+        HealthCheckPath: "/health"
+        EnvironmentEmployeesTable: "Employees"
+        EnvironmentClockTable: "ClockRecords"
+
 
 Outputs:
   VpcId:
