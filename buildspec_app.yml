@@ -36,8 +36,8 @@ phases:
       - docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f app/Dockerfile app/
 
       - echo "Tagging..."
-      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REPO_URI}:${IMAGE_TAG}
-      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REPO_URI}:latest
+      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO_URI}:${IMAGE_TAG}
+      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO_URI}:latest
 
   post_build:
     commands:
