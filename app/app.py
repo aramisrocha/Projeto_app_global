@@ -25,7 +25,7 @@ app.add_middleware(
 #CLOCK_TABLE = os.getenv("CLOCK_TABLE", "ClockRecords")
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")  # só no local
+DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")  
 
 EMPLOYEES_TABLE = os.environ["EMPLOYEES_TABLE"]
 CLOCK_TABLE = os.environ["CLOCK_TABLE"]
