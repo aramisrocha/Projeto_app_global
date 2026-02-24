@@ -15,7 +15,7 @@ env:
 phases:
   pre_build:
     commands:
-      - echo "== Pre-build: set vars =="
+      #- echo "== Pre-build: set vars =="
       - aws --version
       #- export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       #- export ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
@@ -41,7 +41,7 @@ phases:
 
   post_build:
     commands:
-      - echo "== Post-build: push =="
+      #- echo "== Post-build: push =="
       - docker push ${REPO_URI}:${IMAGE_TAG}
       - docker push ${REPO_URI}:latest
 
