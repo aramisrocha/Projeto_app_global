@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "DynamoDB - Sistema de Pontos (single-table design)"
+Description: "DynamoDB - Sistema de Pontos (single-table design) + employees/clock tables"
 
 Parameters:
   ProjectName:
@@ -103,6 +103,98 @@ Resources:
         - Key: Service
           Value: "points"
 
+  # === NOVAS TABELAS ===
+
+  EmployeesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "${ProjectName}-${Environment}-employees"
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      SSESpecification:
+        SSEEnabled: true
+
+      TimeToLiveSpecification: !If
+        - TTLIsEnabled
+        - AttributeName: !Ref TTLAttributeName
+          Enabled: true
+        - !Ref "AWS::NoValue"
+
+      PointInTimeRecoverySpecification: !If
+        - PITRIsEnabled
+        - PointInTimeRecoveryEnabled: true
+        - !Ref "AWS::NoValue"
+
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: "employees"
+
+  ClockTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "${ProjectName}-${Environment}-clock"
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: employeeId
+          AttributeType: S
+        - AttributeName: timestampUtc
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: employeeId
+          KeyType: HASH
+        - AttributeName: timestampUtc
+          KeyType: RANGE
+
+      SSESpecification:
+        SSEEnabled: true
+
+      TimeToLiveSpecification: !If
+        - TTLIsEnabled
+        - AttributeName: !Ref TTLAttributeName
+          Enabled: true
+        - !Ref "AWS::NoValue"
+
+      PointInTimeRecoverySpecification: !If
+        - PITRIsEnabled
+        - PointInTimeRecoveryEnabled: true
+        - !Ref "AWS::NoValue"
+
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: "clock"
+
 Outputs:
   PointsTableName:
     Description: "Nome da tabela DynamoDB"
@@ -119,3 +211,27 @@ Outputs:
   PointsTableStreamArn:
     Description: "ARN do Stream (para integrações / global tables no futuro)"
     Value: !GetAtt PointsTable.StreamArn
+
+  EmployeesTableName:
+    Description: "Nome da tabela de funcionários"
+    Value: !Ref EmployeesTable
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-EmployeesTableName"
+
+  EmployeesTableArn:
+    Description: "ARN da tabela de funcionários"
+    Value: !GetAtt EmployeesTable.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-EmployeesTableArn"
+
+  ClockTableName:
+    Description: "Nome da tabela de registros de ponto"
+    Value: !Ref ClockTable
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ClockTableName"
+
+  ClockTableArn:
+    Description: "ARN da tabela de registros de ponto"
+    Value: !GetAtt ClockTable.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ClockTableArn" 

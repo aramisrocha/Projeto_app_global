@@ -21,16 +21,24 @@ app.add_middleware(
 
 
 # Nome das tabelas (pode vir de variável de ambiente no ECS)
-EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "Employees")
-CLOCK_TABLE = os.getenv("CLOCK_TABLE", "ClockRecords")
+#EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "Employees")
+#CLOCK_TABLE = os.getenv("CLOCK_TABLE", "ClockRecords")
+
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")  # só no local
+
+EMPLOYEES_TABLE = os.environ["EMPLOYEES_TABLE"]
+CLOCK_TABLE = os.environ["CLOCK_TABLE"]
+
 
 #dynamodb = boto3.resource("dynamodb")
 dynamodb = boto3.resource(
     "dynamodb",
-    endpoint_url="http://192.168.10.100:8000",
+    #endpoint_url="http://192.168.10.100:8000",
+    #endpoint_url= "DYNAMODB_ENDPOINT",
     region_name="us-east-1",
-    aws_access_key_id="dummy",
-    aws_secret_access_key="dummy",
+    #aws_access_key_id="dummy",
+    #aws_secret_access_key="dummy",
 )
 employees_table = dynamodb.Table(EMPLOYEES_TABLE)
 clock_table = dynamodb.Table(CLOCK_TABLE)
@@ -132,3 +140,7 @@ def list_clock_records(employee_id: str):
         ScanIndexForward=False,
     )
     return resp.get("Items", [])
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
