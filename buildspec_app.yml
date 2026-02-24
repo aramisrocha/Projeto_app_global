@@ -43,7 +43,7 @@ phases:
     commands:
       #- echo "== Post-build: push =="
       - docker push ${ECR_REPO_URI}:${IMAGE_TAG}
-      - docker push ${ECR_REPO_URI}:latest
+      #- docker push ${ECR_REPO_URI}:latest
 
       - echo "Generating imagedefinitions.json (ECS deploy helper)"
       - printf '[{"name":"%s","imageUri":"%s"}]' "${IMAGE_NAME}" "${ECR_REPO_URI}:${IMAGE_TAG}" > imagedefinitions.json
