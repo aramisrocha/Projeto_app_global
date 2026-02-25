@@ -29,7 +29,7 @@ DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")
 
 EMPLOYEES_TABLE = os.environ["EMPLOYEES_TABLE"]
 CLOCK_TABLE = os.environ["CLOCK_TABLE"]
-
+endpoint = os.getenv("DYNAMODB_ENDPOINT")
 
 #dynamodb = boto3.resource("dynamodb")
 dynamodb = boto3.resource(
@@ -39,6 +39,7 @@ dynamodb = boto3.resource(
     region_name="us-east-1",
     #aws_access_key_id="dummy",
     #aws_secret_access_key="dummy",
+    endpoint_url=endpoint if endpoint else None
 )
 employees_table = dynamodb.Table(EMPLOYEES_TABLE)
 clock_table = dynamodb.Table(CLOCK_TABLE)
