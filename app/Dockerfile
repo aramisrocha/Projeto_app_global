@@ -1,5 +1,5 @@
-FROM python:3.11-slim
-
+#FROM python:3.11-slim
+FROM public.ecr.aws/docker/library/python:3.11-slim
 # Evitar que o Python gere .pyc e use buffer de saída
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
