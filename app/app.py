@@ -27,25 +27,38 @@ app.add_middleware(
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")  
 
-EMPLOYEES_TABLE = os.environ["EMPLOYEES_TABLE"]
-CLOCK_TABLE = os.environ["CLOCK_TABLE"]
-endpoint = os.getenv("DYNAMODB_ENDPOINT")
+#EMPLOYEES_TABLE = os.environ["EMPLOYEES_TABLE"]
+#CLOCK_TABLE = os.environ["CLOCK_TABLE"]
+#endpoint = os.getenv("DYNAMODB_ENDPOINT")
 
 #dynamodb = boto3.resource("dynamodb")
+
+
+EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "EMPLOYEES_TABLE")
+CLOCK_TABLE = os.getenv("CLOCK_TABLE", "CLOCK_TABLE")
 dynamodb = boto3.resource(
     "dynamodb",
     #endpoint_url="http://192.168.10.100:8000",
     #endpoint_url= "DYNAMODB_ENDPOINT",
-    region_name="us-east-1",
+    region_name=AWS_REGION,
     #aws_access_key_id="dummy",
     #aws_secret_access_key="dummy",
-    endpoint_url=endpoint if endpoint else None
+    endpoint_url=DYNAMODB_ENDPOINT if DYNAMODB_ENDPOINT else None,
 )
+
+
 employees_table = dynamodb.Table(EMPLOYEES_TABLE)
 clock_table = dynamodb.Table(CLOCK_TABLE)
 
 #app = FastAPI(title="Registro de Ponto - Global Lab")
 
+print("AWS_REGION =", AWS_REGION)
+print("DYNAMODB_ENDPOINT =", DYNAMODB_ENDPOINT)
+print("EMPLOYEES_TABLE =", EMPLOYEES_TABLE)
+print("CLOCK_TABLE =", CLOCK_TABLE)
+
+sts = boto3.client("sts", region_name=AWS_REGION)
+print("CALLER_IDENTITY =", sts.get_caller_identity())
 
 # ==== MODELOS ====
 
