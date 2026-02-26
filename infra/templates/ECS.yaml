@@ -214,9 +214,11 @@ Resources:
               Protocol: tcp
           Environment:
             - Name: EMPLOYEES_TABLE
-              Value: !Ref EnvironmentEmployeesTable
+              #Value: !Ref EnvironmentEmployeesTable
+              Value: "EMPLOYEES_TABLE"
             - Name: CLOCK_TABLE
-              Value: !Ref EnvironmentClockTable
+              #Value: !Ref EnvironmentClockTable
+              Value: "CLOCK_TABLE"
           LogConfiguration:
             LogDriver: awslogs
             Options:
