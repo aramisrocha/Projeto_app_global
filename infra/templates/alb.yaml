@@ -53,7 +53,7 @@ Resources:
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub "${ProjectName}-${Environment}-alb"
+      Name: !Sub "${ProjectName}-${Environment}-alb-02"
       #Scheme: internet-facing
       Scheme: internal
       Type: application
