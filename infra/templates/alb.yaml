@@ -54,7 +54,8 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-alb"
-      Scheme: internet-facing
+      #Scheme: internet-facing
+      Scheme: internal
       Type: application
       IpAddressType: ipv4
       Subnets: !Ref PublicSubnetIds
