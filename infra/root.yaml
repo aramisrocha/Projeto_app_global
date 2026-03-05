@@ -115,7 +115,19 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-
+ 
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VpcLinkStack
+      - AlbStack
+    Properties:
+      TemplateURL: templates/apigw.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
+        AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
 
 Outputs:
   VpcId:
