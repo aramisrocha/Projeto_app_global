@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: REST API (v1) with VPC Link integration
+Description: HTTP API (v2) with VPC Link integration to internal ALB
 
 Parameters:
   ProjectName:
@@ -12,154 +12,81 @@ Parameters:
     Type: String
 
 Resources:
-  RestApi:
-    Type: AWS::ApiGateway::RestApi
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-api"
-      EndpointConfiguration:
-        Types: [REGIONAL]
+      ProtocolType: HTTP
 
-  EmployeesResource:
-    Type: AWS::ApiGateway::Resource
+  # Integration via VPC Link to your internal ALB.
+  # Using HTTP_PROXY and forwarding path via {proxy}
+  AlbVpcLinkIntegration:
+    Type: AWS::ApiGatewayV2::Integration
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: employees
+      ApiId: !Ref HttpApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLinkId
+      PayloadFormatVersion: "1.0"
+      IntegrationUri: !Sub "http://${AlbInternalDnsName}/{proxy}"
 
-  ClockResource:
-    Type: AWS::ApiGateway::Resource
+  # Routes
+  EmployeesGetRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: clock
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /employees"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  ClockEmployeeIdResource:
-    Type: AWS::ApiGateway::Resource
+  EmployeesPostRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref ClockResource
-      PathPart: "{employee_id}"
+      ApiId: !Ref HttpApi
+      RouteKey: "POST /employees"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  HealthResource:
-    Type: AWS::ApiGateway::Resource
+  ClockGetRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !GetAtt RestApi.RootResourceId
-      PathPart: health
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /clock"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  EmployeesGet:
-    Type: AWS::ApiGateway::Method
+  ClockPostRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref EmployeesResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/employees"
+      ApiId: !Ref HttpApi
+      RouteKey: "POST /clock"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  EmployeesPost:
-    Type: AWS::ApiGateway::Method
+  ClockEmployeeIdGetRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref EmployeesResource
-      HttpMethod: POST
-      AuthorizationType: NONE
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: POST
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/employees"
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /clock/{employee_id}"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  ClockGet:
-    Type: AWS::ApiGateway::Method
+  HealthGetRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref ClockResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/clock"
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /health"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-  ClockPost:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref ClockResource
-      HttpMethod: POST
-      AuthorizationType: NONE
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: POST
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/clock"
-
-  ClockEmployeeIdGet:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref ClockEmployeeIdResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      RequestParameters:
-        method.request.path.employee_id: true
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/clock/{employee_id}"
-        RequestParameters:
-          integration.request.path.employee_id: "method.request.path.employee_id"
-
-  HealthGet:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref HealthResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VpcLinkId
-        Uri: !Sub "http://${AlbInternalDnsName}/health"
-
-  ApiDeployment:
-    Type: AWS::ApiGateway::Deployment
-    DependsOn:
-      - EmployeesGet
-      - EmployeesPost
-      - ClockGet
-      - ClockPost
-      - ClockEmployeeIdGet
-      - HealthGet
-    Properties:
-      RestApiId: !Ref RestApi
-
+  # Default stage
   ApiStage:
-    Type: AWS::ApiGateway::Stage
+    Type: AWS::ApiGatewayV2::Stage
     Properties:
-      RestApiId: !Ref RestApi
-      DeploymentId: !Ref ApiDeployment
+      ApiId: !Ref HttpApi
       StageName: !Ref Environment
-      TracingEnabled: false
+      AutoDeploy: true
 
 Outputs:
-  RestApiId:
-    Value: !Ref RestApi
-    Description: REST API Id
+  HttpApiId:
+    Description: HTTP API Id
+    Value: !Ref HttpApi
 
   InvokeUrl:
     Description: Invoke URL
-    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
