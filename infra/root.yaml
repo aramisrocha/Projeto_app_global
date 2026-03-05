@@ -127,7 +127,8 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
-        AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
+        #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
+        AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
 
 Outputs:
   VpcId:

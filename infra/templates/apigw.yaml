@@ -8,8 +8,10 @@ Parameters:
     Type: String
   VpcLinkId:
     Type: String
-  AlbInternalDnsName:
-    Type: String
+  #AlbInternalDnsName:
+    #Type: String
+  AlbHttpListenerArn:
+    Type: String    
 
 Resources:
   HttpApi:
@@ -29,7 +31,9 @@ Resources:
       ConnectionType: VPC_LINK
       ConnectionId: !Ref VpcLinkId
       PayloadFormatVersion: "1.0"
-      IntegrationUri: !Sub "http://${AlbInternalDnsName}/{proxy}"
+      #IntegrationUri: !Sub "http://${AlbInternalDnsName}/{proxy}"
+      IntegrationUri: !Ref AlbHttpListenerArn
+
 
   # Routes
   EmployeesGetRoute:
