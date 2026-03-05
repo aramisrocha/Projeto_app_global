@@ -107,6 +107,16 @@ Resources:
         EnvironmentClockTable: "ClockRecords"
 
 
+  VpcLinkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/vpc-link.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+
 Outputs:
   VpcId:
     Description: "VPC ID (from nested NetworkStack)"

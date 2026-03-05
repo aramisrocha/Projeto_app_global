@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Nested stack - API Gateway v2 VPC Link using VPC/Subnets from NetworkStack exports
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+  VpcLinkName:
+    Type: String
+    Default: VPC_Link_app_global
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+Resources:
+  VpcLinkSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName}-${Environment}-apigw-vpc-link-sg"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-apigw-vpc-link-sg"
+
+  ApiGatewayVpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: !Sub "${VpcLinkName}-${Environment}"
+      SubnetIds: !Split [",", { "Fn::ImportValue": { "Fn::Sub": "${ProjectName}-${Environment}-PublicSubnetIds" } }]
+      SecurityGroupIds:
+        - !Ref VpcLinkSecurityGroup
+      Tags:
+        Project: !Ref ProjectName
+        Environment: !Ref Environment
+
+Outputs:
+  VpcLinkId:
+    Description: VPC Link ID
+    Value: !Ref ApiGatewayVpcLink
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-VpcLinkId"
+
+  VpcLinkSecurityGroupId:
+    Description: Security Group ID used by the VPC Link ENIs
+    Value: !Ref VpcLinkSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-VpcLinkSecurityGroupId"
