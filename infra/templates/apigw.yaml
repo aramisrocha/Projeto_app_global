@@ -83,7 +83,8 @@ Resources:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref HttpApi
-      StageName: !Ref Environment
+      #StageName: !Ref Environment
+      StageName: "$default"
       AutoDeploy: true
 
 Outputs:
@@ -93,4 +94,5 @@ Outputs:
 
   InvokeUrl:
     Description: Invoke URL
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    #Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
