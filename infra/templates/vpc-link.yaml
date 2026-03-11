@@ -11,6 +11,8 @@ Parameters:
     Default: VPC_Link_app_global
   VpcId:
     Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: String
 
 Resources:
   VpcLinkSecurityGroup:
@@ -34,7 +36,8 @@ Resources:
     Type: AWS::ApiGatewayV2::VpcLink
     Properties:
       Name: !Sub "${VpcLinkName}-${Environment}"
-      SubnetIds: !Split [",", { "Fn::ImportValue": { "Fn::Sub": "${ProjectName}-${Environment}-PublicSubnetIds" } }]
+      #SubnetIds: !Split [",", { "Fn::ImportValue": { "Fn::Sub": "${ProjectName}-${Environment}-PublicSubnetIds" } }]
+      SubnetIds: !Split [",", !Ref PublicSubnetIds]
       SecurityGroupIds:
         - !Ref VpcLinkSecurityGroup
       Tags:
