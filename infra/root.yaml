@@ -131,6 +131,19 @@ Resources:
         #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
         AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
 
+# Frontend
+  FrontendStack:
+     Type: AWS::CloudFormation::Stack
+     DependsOn:
+       - ApiGatewayStack
+     Properties:
+       TemplateURL: templates/s3.yaml
+       Parameters:
+         ProjectName: !Ref ProjectName
+         Environment: !Ref Environment
+         BucketName: aramis-app-global
+         #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
+
 Outputs:
   VpcId:
     Description: "VPC ID (from nested NetworkStack)"
@@ -155,3 +168,6 @@ Outputs:
     Value: !GetAtt NetworkStack.Outputs.InternetGatewayId
     Export:
       Name: !Sub "${ProjectName}-${Environment}-InternetGatewayId"
+ 
+  FrontendURL:
+    Value: !GetAtt FrontendStack.Outputs.WebsiteURL
