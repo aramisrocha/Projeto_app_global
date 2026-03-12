@@ -19,6 +19,15 @@ Resources:
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-api"
       ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - content-type
 
   # Integration via VPC Link to your internal ALB.
   # Using HTTP_PROXY and forwarding path via {proxy}
