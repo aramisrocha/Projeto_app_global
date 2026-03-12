@@ -141,7 +141,7 @@ Resources:
        Parameters:
          ProjectName: !Ref ProjectName
          Environment: !Ref Environment
-         BucketName: aramis-app-global
+         BucketName:  !Sub "aramis-app-global-${Environment}"
          #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
 
 Outputs:
