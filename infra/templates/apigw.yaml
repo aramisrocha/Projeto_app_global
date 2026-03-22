@@ -22,9 +22,13 @@ Parameters:
     Type: String
     Default: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
 
-  HostedZoneName:
+  #HostedZoneName:
+   # Type: String
+   # Default: aramislabs.click.
+
+  HostedZoneId:
     Type: String
-    Default: aramislabs.click.
+    Default: Z00421932FD8154X80J2A
 
 Resources:
   HttpApi:
@@ -128,7 +132,8 @@ Resources:
       - ApiCustomDomain
       - ApiDomainMapping
     Properties:
-      HostedZoneName: !Ref HostedZoneName
+      HostedZoneId: !Ref HostedZoneId
+      #HostedZoneName: !Ref HostedZoneName
       Name: !Sub "${ApiCustomDomainName}."
       Type: A
       AliasTarget:

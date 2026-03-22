@@ -132,7 +132,8 @@ Resources:
         AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ApiCustomDomainName: apiglobal.aramislabs.click
         CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
-        HostedZoneName: aramislabs.click.
+        #HostedZoneName: aramislabs.click.
+        #HostedZoneId: Z00421932FD8154X80J2A
 
 # Frontend
   FrontendStack:
