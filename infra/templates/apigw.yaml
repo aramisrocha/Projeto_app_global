@@ -124,6 +124,9 @@ Resources:
 
   ApiCustomDomainRecord:
     Type: AWS::Route53::RecordSet
+    DependsOn:
+      - ApiCustomDomain
+      - ApiDomainMapping
     Properties:
       HostedZoneName: !Ref HostedZoneName
       Name: !Sub "${ApiCustomDomainName}."
