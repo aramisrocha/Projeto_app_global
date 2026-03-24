@@ -88,9 +88,9 @@ Resources:
 
         Origins:
           - Id: S3Origin
-            #DomainName: !Ref S3WebsiteEndpoint
+            DomainName: !Ref S3WebsiteEndpoint
             #DomainName: !Sub "${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
-            DomainName: !Sub "${BucketName}.s3-website-${AWS::Region}.amazonaws.com"
+            #DomainName: !Sub "${BucketName}.s3-website-${AWS::Region}.amazonaws.com"
             CustomOriginConfig:
               OriginProtocolPolicy: http-only
 
