@@ -2,6 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: CloudFront + S3 Website + WAF
 
 Parameters:
+  BucketName:
+    Type: String  
   DomainName:
     Type: String
     Default: www.aramislabs.click
@@ -10,6 +12,7 @@ Parameters:
     Type: String
     Default: aramis-app-global-dev.s3-website-us-east-1.amazonaws.com
     #DomainName: !GetAtt S3Bucket.WebsiteURL
+    
 
 Resources:
 
@@ -85,8 +88,9 @@ Resources:
 
         Origins:
           - Id: S3Origin
-            DomainName: !Ref S3WebsiteEndpoint
+            #DomainName: !Ref S3WebsiteEndpoint
             #DomainName: !Sub "${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
+            DomainName: !Sub "${BucketName}.s3-website-${AWS::Region}.amazonaws.com"
             CustomOriginConfig:
               OriginProtocolPolicy: http-only
 

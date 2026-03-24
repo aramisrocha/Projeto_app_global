@@ -155,11 +155,11 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn: FrontendStack
     Properties:
-       TemplateURL: templates/cloudfront.yaml
+       TemplateURL: templates/cloudfront_waf.yaml
        Parameters:
          BucketName: !GetAtt FrontendStack.Outputs.BucketName
          DomainName: !Ref DomainName
-         
+
 Outputs:
   VpcId:
     Description: "VPC ID (from nested NetworkStack)"
