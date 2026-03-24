@@ -159,7 +159,7 @@ Resources:
        Parameters:
          BucketName: !GetAtt FrontendStack.Outputs.BucketName
          DomainName: !Ref DomainName
-
+         
 Outputs:
   VpcId:
     Description: "VPC ID (from nested NetworkStack)"
