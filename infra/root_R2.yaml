@@ -128,7 +128,7 @@ Resources:
           VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
           #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
           AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
-          ApiCustomDomainName: apiglobal.aramislabs.click
+          ApiCustomDomainName: apiglobal-r2.aramislabs.click
           #CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
           CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/5c8b8f1d-5195-4ca3-aef2-7b236d8382dc
           #HostedZoneName: aramislabs.click.
