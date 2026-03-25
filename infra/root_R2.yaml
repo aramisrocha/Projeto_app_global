@@ -9,8 +9,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "PROD-R2"
-    AllowedValues: ["PROD", "PROD-R2"]
+    Default: "PRODR2"
+    AllowedValues: ["PROD", "PRODR2"]
     Description: "Variaveis para definir "
 
   # 
@@ -39,12 +39,12 @@ Parameters:
   EnableDnsHostnames:
     Type: String
     Default: "true"
-    #AllowedValues: ["true", "false"]
+    AllowedValues: ["true", "false"]
 
   EnableDnsSupport:
     Type: String
     Default: "true"
-    #AllowedValues: ["true", "false"]
+    AllowedValues: ["true", "false"]
   
   DomainName:
     Type: String
