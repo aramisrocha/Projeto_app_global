@@ -87,6 +87,7 @@ Resources:
       TemplateURL: templates/ECS.yaml
       Parameters:
         ProjectName: "app-global"
+        Environment: "dr"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
@@ -104,6 +105,10 @@ Resources:
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
         EnvironmentClockTable: "ClockRecords"
+        #RoleName: !Sub "${ProjectName}-ecs-task-role"
+        EcsTaskRoleName: "app-global-prodr2-ecs-task-role"
+        EcsTaskExecutionRoleName: "app-global-prodr2-ecs-exec-role"
+
   
   VpcLinkStack:
     Type: AWS::CloudFormation::Stack

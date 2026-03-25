@@ -2,9 +2,18 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, IAM Roles, Logs"
 
 Parameters:
+  #ProjectName:
+    #Type: String
+    #Default: "app-global"
+
   ProjectName:
     Type: String
-    Default: "app-global"
+  Environment:
+    Type: String
+  EcsTaskRoleName:
+    Type: String
+  EcsTaskExecutionRoleName:
+    Type: String    
 
   VpcId:
     Type: AWS::EC2::VPC::Id
@@ -95,7 +104,8 @@ Resources:
   EcsTaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${ProjectName}-ecs-exec-role"
+      #RoleName: !Sub "${ProjectName}-ecs-exec-role"
+      RoleName: !Ref EcsTaskRoleName 
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -109,7 +119,8 @@ Resources:
   EcsTaskRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${ProjectName}-ecs-task-role"
+      #RoleName: !Sub "${ProjectName}-ecs-task-role"
+      RoleName: !Ref EcsTaskExecutionRoleName
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
