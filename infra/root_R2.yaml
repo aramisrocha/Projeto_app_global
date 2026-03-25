@@ -99,7 +99,7 @@ Resources:
         DesiredCount: 2
         AssignPublicIp: "ENABLED"
         #ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-29"
-
+        ImageUri: "181317788381.dkr.ecr.eu-west-1.amazonaws.com/app_global:build-30"
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
         EnvironmentClockTable: "ClockRecords"
