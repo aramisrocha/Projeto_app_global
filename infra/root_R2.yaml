@@ -13,6 +13,10 @@ Parameters:
     #AllowedValues: ["PROD", "PRODR2"]
     AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Variaveis para definir "
+  
+  FrontendEnvironment:
+    Type: String
+    Default: "prod"  
 
   # 
   TemplateBucket:
@@ -150,4 +154,5 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        BucketName:  !Sub "aramis-app-global-${Environment}"        
+        #BucketName:  !Sub "aramis-app-global-${Environment}"
+        BucketName: !Sub "aramis-app-global-${FrontendEnvironment}"        
