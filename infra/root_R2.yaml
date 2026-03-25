@@ -10,7 +10,7 @@ Parameters:
   Environment:
     Type: String
     Default: "PROD-R2"
-    AllowedValues: ["PROD-R2", "PROD-R2"]
+    AllowedValues: ["PROD", "PROD-R2"]
     Description: "Variaveis para definir "
 
   # 
