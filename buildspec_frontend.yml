@@ -5,6 +5,7 @@ phases:
     commands:
       - echo "Iniciando deploy do frontend para o S3..."
       - aws s3 cp frontend/index.html s3://aramis-app-global-dev/index.html
+      - aws s3 cp frontend/index.html s3://aramis-app-global-prod/index.html
 
 artifacts:
   files:
