@@ -4,7 +4,7 @@ env:
   variables:
     STACK_NAME: "app-global-infra-R2"
     TEMPLATE_FILE: "infra/root_R2.yaml"
-    PACKAGED_FILE: "infra/packaged-R2.yaml"
+    PACKAGED_FILE: "infra/packaged.yaml"
 
     # Bucket onde o CloudFormation "package" vai subir os templates 
     # Use um bucket na MESMA região do deploy. teste
