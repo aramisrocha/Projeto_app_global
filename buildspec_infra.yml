@@ -50,7 +50,8 @@ phases:
           --template-file "$PACKAGED_FILE" \
           --capabilities CAPABILITY_NAMED_IAM \
           --role-arn "$CFN_EXEC_ROLE_ARN" \
-          --no-fail-on-empty-changeset
+          --no-fail-on-empty-changeset \
+          --disable-rollback
 
 artifacts:
   files:
