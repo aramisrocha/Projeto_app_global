@@ -41,7 +41,8 @@ phases:
       - aws cloudformation package --template-file "$TEMPLATE_FILE" --s3-bucket "$TEMPLATE_BUCKET" --s3-prefix "$TEMPLATE_PREFIX" --output-template-file "$PACKAGED_FILE"
 
       - echo "Deploy (Create/Update Stack) usando Execution Role..."
-      - aws cloudformation deploy --stack-name "$STACK_NAME" --template-file "$PACKAGED_FILE" --capabilities CAPABILITY_NAMED_IAM --role-arn "$CFN_EXEC_ROLE_ARN" --no-fail-on-empty-changeset
+      #- aws cloudformation deploy --stack-name "$STACK_NAME" --template-file "$PACKAGED_FILE" --capabilities CAPABILITY_NAMED_IAM --role-arn "$CFN_EXEC_ROLE_ARN" --no-fail-on-empty-changeset
+      - aws cloudformation deploy --stack-name "app-global-infra" --template-file "infra/packaged.yaml" --capabilities CAPABILITY_NAMED_IAM --role-arn "arn:aws:iam::181317788381:role/Role_app_global_infra" --no-fail-on-empty-changeset --parameter-overrides TemplateBucket="aramis-projeto-app-global" TemplatePrefix="app-global/infra"
 
 artifacts:
   files:
