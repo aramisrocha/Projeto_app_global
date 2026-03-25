@@ -9,8 +9,9 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "PRODR2"
-    AllowedValues: ["PROD", "PRODR2"]
+    Default: "dev"
+    #AllowedValues: ["PROD", "PRODR2"]
+    AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Variaveis para definir "
 
   # 
@@ -26,15 +27,15 @@ Parameters:
   # Parâmetros repassados ao módulo de rede
   VpcCidr:
     Type: String
-    Default: "10.1.0.0/16"
+    Default: "10.0.0.0/16"
 
   PublicSubnet1Cidr:
     Type: String
-    Default: "10.1.1.0/24"
+    Default: "10.0.1.0/24"
 
   PublicSubnet2Cidr:
     Type: String
-    Default: "10.1.2.0/24"
+    Default: "10.0.2.0/24"
 
   EnableDnsHostnames:
     Type: String
