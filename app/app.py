@@ -159,3 +159,10 @@ def list_clock_records(employee_id: str):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+print("AWS_REGION =", os.getenv("AWS_REGION"))
+print("AWS_DEFAULT_REGION =", os.getenv("AWS_DEFAULT_REGION"))
+print("DYNAMODB_ENDPOINT =", os.getenv("DYNAMODB_ENDPOINT"))
+print("boto3 region =", dynamodb.meta.client.meta.region_name)
+print("boto3 endpoint =", dynamodb.meta.client.meta.endpoint_url)
