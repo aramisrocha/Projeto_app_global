@@ -107,8 +107,8 @@ Resources:
 
   EmployeesTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       #TableName: !Sub "${ProjectName}-${Environment}-employees"
       TableName: EMPLOYEES_TABLE
@@ -156,8 +156,8 @@ Resources:
 
   ClockTable:
     Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       #TableName: !Sub "${ProjectName}-${Environment}-clock"
       TableName: CLOCK_TABLE
