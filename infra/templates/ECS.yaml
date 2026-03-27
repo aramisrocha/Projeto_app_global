@@ -168,7 +168,7 @@ Resources:
   AppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "${ProjectName}-tg"
+      Name: !Sub "${ProjectName}-blue-tg"
       VpcId: !Ref VpcId
       Protocol: HTTP
       Port: !Ref ContainerPort
