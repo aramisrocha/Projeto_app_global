@@ -177,6 +177,20 @@ Resources:
       HealthCheckPath: !Ref HealthCheckPath
       Matcher:
         HttpCode: "200-399"
+  
+  AppTargetGroupGreen:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ProjectName}-green-tg"
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: !Ref ContainerPort
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: !Ref HealthCheckPath
+      Matcher:
+        HttpCode: "200-399"
+       
 
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
@@ -212,6 +226,14 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - !Sub "curl -f http://localhost:${ContainerPort}/health || exit 1"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 10    
           Environment:
             - Name: EMPLOYEES_TABLE
               Value: !Ref EnvironmentEmployeesTable
