@@ -78,6 +78,13 @@ Parameters:
   EnvironmentClockTable:
     Type: String
     Default: "ClockRecords"
+    
+  DeploymentControllerType:
+    Type: String
+    Default: ECS
+    AllowedValues:
+      - ECS
+      - CODE_DEPLOY
 
 Resources:
   # =========================
@@ -165,7 +172,7 @@ Resources:
   # =========================
   # Target Group (IP) + Listener Rule
   # =========================
-  AppTargetGroup:
+  AppTargetGroupBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub "${ProjectName}-blue-tg"
@@ -203,7 +210,7 @@ Resources:
             - !Ref PathPattern
       Actions:
         - Type: forward
-          TargetGroupArn: !Ref AppTargetGroup
+          TargetGroupArn: !Ref AppTargetGroupBlue
 
   # =========================
   # Task Definition
@@ -260,6 +267,8 @@ Resources:
       Cluster: !Ref EcsCluster
       DesiredCount: !Ref DesiredCount
       LaunchType: FARGATE
+      DeploymentController:
+        Type: !Ref DeploymentControllerType
       TaskDefinition: !Ref TaskDefinition
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -270,7 +279,7 @@ Resources:
       LoadBalancers:
         - ContainerName: !Sub "${ProjectName}-container"
           ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref AppTargetGroup
+          TargetGroupArn: !Ref AppTargetGroupBlue
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 50
@@ -283,7 +292,7 @@ Outputs:
     Value: !Ref EcsService
 
   TargetGroupArn:
-    Value: !Ref AppTargetGroup
+    Value: !Ref AppTargetGroupBlue
 
   ServiceSecurityGroupId:
     Value: !Ref ServiceSecurityGroup
