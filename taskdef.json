@@ -4,13 +4,14 @@
   "containerDefinitions": [
     {
       "name": "app",
-      "image": "IMAGE_URI",
+      "image": "<IMAGE1_NAME>",
       "portMappings": [
         {
           "containerPort": 8000,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "essential": true
     }
   ],
   "requiresCompatibilities": ["FARGATE"],
