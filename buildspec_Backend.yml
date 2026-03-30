@@ -46,11 +46,13 @@ phases:
       - docker push ${REPO_URI}:latest
 
       - echo "Generating imagedefinitions.json (ECS deploy helper)"
-      - printf '[{"name":"%s","imageUri":"%s"}]' "${IMAGE_NAME}" "${REPO_URI}:${IMAGE_TAG}" > imagedefinitions.json
-
+      #- printf '[{"name":"%s","imageUri":"%s"}]' "${IMAGE_NAME}" "${REPO_URI}:${IMAGE_TAG}" > imagedefinitions.json
+      - printf '{"ImageURI":"%s"}' "${REPO_URI}:${IMAGE_TAG}" > imageDetail.json
       - echo "Done. Image pushed:"
       - echo "${REPO_URI}:${IMAGE_TAG}"
 
 artifacts:
   files:
-    - imagedefinitions.json
+    #- imagedefinitions.json
+    - appspec.yml
+    - imageDetail.json
