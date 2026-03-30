@@ -12,5 +12,10 @@
         }
       ]
     }
-  ]
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-exec-role",
+  "taskRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
 }
