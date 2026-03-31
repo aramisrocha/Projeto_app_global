@@ -21,24 +21,19 @@ phases:
       - echo "== Build =="
       - docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f app/Dockerfile app/
       - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO_URI}:${IMAGE_TAG}
-      - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO_URI}:latest
 
   post_build:
     commands:
       - docker push ${ECR_REPO_URI}:${IMAGE_TAG}
-      - docker push ${ECR_REPO_URI}:latest
 
-      # Atualiza a imagem no taskdef.json com a tag gerada
       - echo "Updating image in taskdef.json..."
       - sed -i "s|${ECR_REPO_URI}:latest|${ECR_REPO_URI}:${IMAGE_TAG}|g" taskdef.json
 
-      # Registra a nova task definition e captura o ARN
       - echo "Registering task definition..."
       - aws ecs register-task-definition --cli-input-json file://taskdef.json
       - export TASK_DEF_ARN=$(aws ecs describe-task-definition --task-definition app-global-task --query "taskDefinition.taskDefinitionArn" --output text)
       - echo "TASK_DEF_ARN=${TASK_DEF_ARN}"
 
-      # Injeta o ARN no appspec.yaml
       - sed -i "s|<TASK_DEFINITION>|${TASK_DEF_ARN}|g" appspec.yaml
 
       - echo "Generating imagedefinitions.json..."
