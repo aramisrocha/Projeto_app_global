@@ -7,6 +7,7 @@ export default function App() {
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
   const [msg, setMsg] = useState("");
+  const [screen, setScreen] = useState("home");
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -34,34 +35,59 @@ export default function App() {
     }
   }
 
-  return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Sistema de Ponto</h1>
+  // Tela HOME
+  if (screen === "home") {
+    return (
+      <div style={{ textAlign: "center", marginTop: "50px" }}>
+        
+        {/* BOTÃO ADMIN */}
+        <div style={{ position: "absolute", top: "20px", left: "20px" }}>
+          <button onClick={() => setScreen("admin")}>
+            Acesso Administrativo
+          </button>
+        </div>
 
-      <h2>{time.toLocaleTimeString()}</h2>
+        <h1>Sistema de Ponto</h1>
 
-      <div>
-        <input
-          placeholder="Matrícula"
-          value={matricula}
-          onChange={(e) => setMatricula(e.target.value)}
-        />
+        <h2>{time.toLocaleTimeString()}</h2>
+
+        <div>
+          <input
+            placeholder="Matrícula"
+            value={matricula}
+            onChange={(e) => setMatricula(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <input
+            type="password"
+            placeholder="Senha"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+          />
+        </div>
+
+        <button onClick={registrarPonto}>
+          Registrar Ponto
+        </button>
+
+        <p>{msg}</p>
       </div>
+    );
+  }
 
-      <div>
-        <input
-          type="password"
-          placeholder="Senha"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-        />
+  // Tela ADMIN (simples por enquanto)
+  if (screen === "admin") {
+    return (
+      <div style={{ textAlign: "center", marginTop: "50px" }}>
+        <button onClick={() => setScreen("home")}>
+          ← Voltar
+        </button>
+
+        <h1>Área Administrativa</h1>
+        <p>Login administrativo virá aqui (Cognito depois)</p>
       </div>
-
-      <button onClick={registrarPonto}>
-        Registrar Ponto
-      </button>
-
-      <p>{msg}</p>
-    </div>
-  );
+    );
+  }
 }
