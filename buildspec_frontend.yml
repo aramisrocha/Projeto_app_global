@@ -1,12 +1,18 @@
 version: 0.2
 
 phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - cd frontend
+      - npm install
+
   build:
     commands:
-      - echo "Iniciando deploy do frontend para o S3..."
-      - aws s3 cp frontend/index.html s3://aramis-app-global-dev/index.html
-      - aws s3 cp frontend/index.html s3://aramis-app-global-prod/index.html
+      - cd frontend
+      - npm run build
 
-artifacts:
-  files:
-    - '**/*'
+  post_build:
+    commands:
+      - aws s3 sync frontend/dist/ s3://aramis-app-global-dev --delete
