@@ -5,18 +5,19 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "Instalando dependências do frontend..."
-      - cd frontend && npm install
+      - echo "Entrando no frontend..."
+      - cd frontend
+      - npm install
 
   build:
     commands:
       - echo "Buildando frontend..."
-      - cd frontend && npm run build
+      - npm run build
 
   post_build:
     commands:
-      - echo "Enviando build para o S3..."
-      - aws s3 sync frontend/dist/ s3://aramis-app-global-dev --delete
+      - echo "Subindo para S3..."
+      - aws s3 sync dist/ s3://aramis-app-global-dev --delete
 
 artifacts:
   files:
