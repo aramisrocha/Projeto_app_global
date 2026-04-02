@@ -157,8 +157,10 @@ export default function App() {
       if (!token) {
         throw new Error("Usuário administrativo não autenticado.");
       }
-      console.log("API_BASE_URL:", API_BASE_URL);
-      console.log("URL final:", `${API_BASE_URL}/employees`);
+      const url = `${API_BASE_URL}/employees`;
+
+      console.log("API_BASE_URL =", API_BASE_URL);
+      console.log("URL final =", url);
       const res = await fetch(`${API_BASE_URL}/employees`, {
         method: "POST",
         headers: {
