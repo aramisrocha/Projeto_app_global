@@ -39,12 +39,14 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
           - "*"
+          - https://www.aramislabs.click
         AllowMethods:
           - GET
           - POST
           - OPTIONS
         AllowHeaders:
           - content-type
+          - authorization
 
   AlbVpcLinkIntegration:
     Type: AWS::ApiGatewayV2::Integration
