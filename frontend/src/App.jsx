@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const COGNITO_DOMAIN = "https://us-east-1gcfsrjxou.auth.us-east-1.amazoncognito.com";
 const COGNITO_CLIENT_ID = "1oeaodsmtgvqthl36301eh612a";
-const REDIRECT_URI = "http://localhost:3000";
+const REDIRECT_URI = "https://www.aramislabs.click/callback";
 
 export default function App() {
   const [time, setTime] = useState(new Date());
