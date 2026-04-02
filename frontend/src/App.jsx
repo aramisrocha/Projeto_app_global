@@ -6,15 +6,25 @@ const COGNITO_DOMAIN = "https://us-east-1gcfsrjxou.auth.us-east-1.amazoncognito.
 const COGNITO_CLIENT_ID = "1oeaodsmtgvqthl36301eh612a";
 const REDIRECT_URI = "https://www.aramislabs.click/callback";
 
+function decodeJwt(token) {
+  try {
+    return JSON.parse(atob(token.split(".")[1]));
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [time, setTime] = useState(new Date());
   const [matricula, setMatricula] = useState("");
-  const [senha, setSenha] = useState("");
   const [msg, setMsg] = useState("");
   const [screen, setScreen] = useState("home");
 
   const [adminToken, setAdminToken] = useState(null);
   const [adminUser, setAdminUser] = useState(null);
+
+  const [userToken, setUserToken] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
 
   const [employeeId, setEmployeeId] = useState("");
   const [employeeName, setEmployeeName] = useState("");
@@ -28,16 +38,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("admin_id_token");
-    const savedUser = localStorage.getItem("admin_user");
+    const savedAdminToken = localStorage.getItem("admin_id_token");
+    const savedAdminUser = localStorage.getItem("admin_user");
+    const savedUserToken = localStorage.getItem("user_id_token");
+    const savedUserInfo = localStorage.getItem("user_info");
 
-    if (savedToken) {
-      setAdminToken(savedToken);
-    }
-
-    if (savedUser) {
-      setAdminUser(JSON.parse(savedUser));
-    }
+    if (savedAdminToken) setAdminToken(savedAdminToken);
+    if (savedAdminUser) setAdminUser(JSON.parse(savedAdminUser));
+    if (savedUserToken) setUserToken(savedUserToken);
+    if (savedUserInfo) setUserInfo(JSON.parse(savedUserInfo));
   }, []);
 
   useEffect(() => {
@@ -45,6 +54,7 @@ export default function App() {
     const code = params.get("code");
     const error = params.get("error");
     const errorDescription = params.get("error_description");
+    const loginType = localStorage.getItem("login_type");
 
     if (error) {
       setMsg(`Erro no login: ${errorDescription || error}`);
@@ -74,28 +84,54 @@ export default function App() {
         }
 
         const data = await response.json();
+        const payload = data.id_token ? decodeJwt(data.id_token) : null;
 
-        if (data.id_token) {
-          localStorage.setItem("admin_id_token", data.id_token);
-          setAdminToken(data.id_token);
+        if (loginType === "admin") {
+          if (data.id_token) {
+            localStorage.setItem("admin_id_token", data.id_token);
+            setAdminToken(data.id_token);
+          }
 
-          const payload = JSON.parse(atob(data.id_token.split(".")[1]));
-          localStorage.setItem("admin_user", JSON.stringify(payload));
-          setAdminUser(payload);
+          if (payload) {
+            localStorage.setItem("admin_user", JSON.stringify(payload));
+            setAdminUser(payload);
+          }
+
+          if (data.access_token) {
+            localStorage.setItem("admin_access_token", data.access_token);
+          }
+
+          if (data.refresh_token) {
+            localStorage.setItem("admin_refresh_token", data.refresh_token);
+          }
+
+          setScreen("admin");
+          setMsg("Login administrativo realizado com sucesso!");
+        } else {
+          if (data.id_token) {
+            localStorage.setItem("user_id_token", data.id_token);
+            setUserToken(data.id_token);
+          }
+
+          if (payload) {
+            localStorage.setItem("user_info", JSON.stringify(payload));
+            setUserInfo(payload);
+          }
+
+          if (data.access_token) {
+            localStorage.setItem("user_access_token", data.access_token);
+          }
+
+          if (data.refresh_token) {
+            localStorage.setItem("user_refresh_token", data.refresh_token);
+          }
+
+          setScreen("home");
+          setMsg("Login realizado com sucesso! Agora clique em Registrar Ponto.");
         }
 
-        if (data.access_token) {
-          localStorage.setItem("admin_access_token", data.access_token);
-        }
-
-        if (data.refresh_token) {
-          localStorage.setItem("admin_refresh_token", data.refresh_token);
-        }
-
+        localStorage.removeItem("login_type");
         window.history.replaceState({}, document.title, window.location.pathname);
-
-        setMsg("Login administrativo realizado com sucesso!");
-        setScreen("admin");
       } catch (err) {
         setMsg(err.message);
       }
@@ -104,28 +140,9 @@ export default function App() {
     exchangeCodeForToken();
   }, []);
 
-  async function registrarPonto() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/clock`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          employee_id: matricula,
-          password: senha,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Erro ao registrar ponto");
-
-      setMsg("Ponto registrado com sucesso!");
-    } catch (err) {
-      setMsg(err.message);
-    }
-  }
-
   function loginAdmin() {
+    localStorage.setItem("login_type", "admin");
+
     const loginUrl =
       `${COGNITO_DOMAIN}/oauth2/authorize` +
       `?client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}` +
@@ -134,6 +151,19 @@ export default function App() {
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
     window.location.href = loginUrl;
+  }
+
+  function loginClock() {
+    localStorage.setItem("login_type", "clock");
+
+    const url =
+      `${COGNITO_DOMAIN}/oauth2/authorize` +
+      `?response_type=code` +
+      `&client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&scope=${encodeURIComponent("openid email profile")}`;
+
+    window.location.href = url;
   }
 
   function logoutAdmin() {
@@ -145,7 +175,52 @@ export default function App() {
     setAdminToken(null);
     setAdminUser(null);
     setScreen("home");
-    setMsg("Logout realizado com sucesso.");
+    setMsg("Logout administrativo realizado com sucesso.");
+  }
+
+  function logoutUser() {
+    localStorage.removeItem("user_id_token");
+    localStorage.removeItem("user_access_token");
+    localStorage.removeItem("user_refresh_token");
+    localStorage.removeItem("user_info");
+
+    setUserToken(null);
+    setUserInfo(null);
+    setMsg("Logout do usuário realizado com sucesso.");
+  }
+
+  async function registrarPonto() {
+    try {
+      setMsg("");
+
+      const token = localStorage.getItem("user_id_token");
+
+      if (!token) {
+        throw new Error("Usuário não autenticado.");
+      }
+
+      const res = await fetch(`${API_BASE_URL}/clock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          employee_id: matricula || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Erro ao registrar ponto: ${errorText}`);
+      }
+
+      const data = await res.json();
+      setMsg(data.message || "Ponto registrado com sucesso!");
+      setMatricula("");
+    } catch (err) {
+      setMsg(err.message);
+    }
   }
 
   async function cadastrarFuncionario() {
@@ -157,10 +232,7 @@ export default function App() {
       if (!token) {
         throw new Error("Usuário administrativo não autenticado.");
       }
-      const url = `${API_BASE_URL}/employees`;
 
-      console.log("API_BASE_URL =", API_BASE_URL);
-      console.log("URL final =", url);
       const res = await fetch(`${API_BASE_URL}/employees`, {
         method: "POST",
         headers: {
@@ -203,22 +275,32 @@ export default function App() {
 
         <div>
           <input
-            placeholder="Matrícula"
+            placeholder="Matrícula (opcional)"
             value={matricula}
             onChange={(e) => setMatricula(e.target.value)}
           />
-        </div>
 
-        <div>
-          <input
-            type="password"
-            placeholder="Senha"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-          />
-        </div>
+          <br />
+          <br />
 
-        <button onClick={registrarPonto}>Registrar Ponto</button>
+          {!userToken ? (
+            <button onClick={loginClock}>Entrar para registrar ponto</button>
+          ) : (
+            <>
+              <p>
+                <strong>Usuário autenticado:</strong>{" "}
+                {userInfo?.email || userInfo?.name || "Sem identificação"}
+              </p>
+
+              <button onClick={registrarPonto}>Registrar Ponto</button>
+
+              <br />
+              <br />
+
+              <button onClick={logoutUser}>Logout</button>
+            </>
+          )}
+        </div>
 
         <p>{msg}</p>
       </div>
