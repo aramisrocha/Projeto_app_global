@@ -9,7 +9,7 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: [dev, hml, prd]
-    Description: "Prod"
+    Description: "prd"
 
   TableName:
     Type: String
