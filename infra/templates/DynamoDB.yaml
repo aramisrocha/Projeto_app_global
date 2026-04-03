@@ -10,7 +10,7 @@ Parameters:
     Type: String
     Default: prd
     AllowedValues: [dev, hml, prd]
-    Description: "Varivel "
+    Description: "Environment name"
 
   TableName:
     Type: String
