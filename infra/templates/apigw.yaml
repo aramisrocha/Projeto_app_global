@@ -94,6 +94,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "POST /employees"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ClockGetRoute:
     Type: AWS::ApiGatewayV2::Route
