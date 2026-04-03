@@ -9,7 +9,7 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "dev"
+    Default: "prod"
     AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Environment name"
 

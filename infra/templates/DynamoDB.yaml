@@ -50,13 +50,10 @@ Resources:
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
-        # Chave primária (single-table)
         - AttributeName: PK
           AttributeType: S
         - AttributeName: SK
           AttributeType: S
-
-        # Para GSI de consultas comuns do sistema de pontos
         - AttributeName: GSI1PK
           AttributeType: S
         - AttributeName: GSI1SK
@@ -103,14 +100,11 @@ Resources:
         - Key: Service
           Value: "points"
 
-  # === NOVAS TABELAS ===
-
   EmployeesTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      #TableName: !Sub "${ProjectName}-${Environment}-employees"
       TableName: EMPLOYEES_TABLE
       BillingMode: PAY_PER_REQUEST
 
@@ -154,12 +148,46 @@ Resources:
         - Key: Service
           Value: "employees"
 
+  EmployeesGlobalTable:
+    Type: AWS::DynamoDB::GlobalTable
+    Properties:
+      TableName: EMPLOYEES_TABLE
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+      Replicas:
+        - Region: us-east-1
+        - Region: eu-west-1
+
+      SSESpecification:
+        SSEEnabled: true
+
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
   ClockTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      #TableName: !Sub "${ProjectName}-${Environment}-clock"
       TableName: CLOCK_TABLE
       BillingMode: PAY_PER_REQUEST
 
@@ -196,6 +224,33 @@ Resources:
           Value: !Ref Environment
         - Key: Service
           Value: "clock"
+
+  ClockGlobalTable:
+    Type: AWS::DynamoDB::GlobalTable
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: CLOCK_TABLE
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: employeeId
+          AttributeType: S
+        - AttributeName: timestampUtc
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: employeeId
+          KeyType: HASH
+        - AttributeName: timestampUtc
+          KeyType: RANGE
+
+      Replicas:
+        - Region: us-east-1
+        - Region: eu-west-1
+
+      SSESpecification:
+        SSEEnabled: true
 
 Outputs:
   PointsTableName:
@@ -236,4 +291,4 @@ Outputs:
     Description: "ARN da tabela de registros de ponto"
     Value: !GetAtt ClockTable.Arn
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-ClockTableArn" 
+      Name: !Sub "${ProjectName}-${Environment}-ClockTableArn"
