@@ -9,8 +9,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "prod"
-    AllowedValues: ["dev", "hml", "prod", "dr"]
+    Default: "prd"
+    AllowedValues: ["dev", "hml", "prd", "dr"]
     Description: "Environment name"
 
   # Bucket/prefix onde os templates (inclusive templates/network.yaml) foram publicados
