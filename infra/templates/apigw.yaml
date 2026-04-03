@@ -29,9 +29,7 @@ Parameters:
   CognitoAppClientId:
     Type: String
     Default: 1oeaodsmtgvqthl36301eh612a
-  #HostedZoneName:
-   # Type: String
-   # Default: aramislabs.click.
+
 
   HostedZoneId:
     Type: String
