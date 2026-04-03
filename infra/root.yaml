@@ -4,7 +4,7 @@ Description: "Root stack - creates Network layer using nested stack (templates/n
 Parameters:
   ProjectName:
     Type: String
-    Default: "App_global"
+    Default: "app_global"
     Description: "Prefix used in resource names/tags"
 
   Environment:
