@@ -189,40 +189,46 @@ export default function App() {
     setMsg("Logout do usuário realizado com sucesso.");
   }
 
-  async function registrarPonto() {
-    try {
-      setMsg("");
+ async function registrarPonto() {
+  try {
+    setMsg("");
 
-      const token = localStorage.getItem("user_id_token");
+    const token = localStorage.getItem("user_id_token");
 
-      if (!token) {
-        throw new Error("Usuário não autenticado.");
-      }
-
-      const res = await fetch(`${API_BASE_URL}/clock`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          employee_id: matricula || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Erro ao registrar ponto: ${errorText}`);
-      }
-
-      const data = await res.json();
-      setMsg(data.message || "Ponto registrado com sucesso!");
-      setMatricula("");
-    } catch (err) {
-      setMsg(err.message);
+    if (!token) {
+      throw new Error("Usuário não autenticado.");
     }
-  }
 
+    if (!matricula) {
+      throw new Error("Informe a matrícula.");
+    }
+
+    const res = await fetch(`${API_BASE_URL}/clock`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        employeeId: matricula,
+        type: "IN",
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Erro ao registrar ponto: ${errorText}`);
+    }
+
+    const data = await res.json();
+
+    setMsg(`Ponto registrado com sucesso! Tipo: ${data.type}`);
+    setMatricula("");
+
+  } catch (err) {
+    setMsg(err.message);
+  }
+}
   async function cadastrarFuncionario() {
     try {
       setAdminMsg("");
