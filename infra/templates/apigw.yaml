@@ -22,6 +22,13 @@ Parameters:
     Type: String
     Default: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
 
+  CognitoUserPoolId:
+    Type: String
+    Default: us-east-1_GCFSRJXoU
+
+  CognitoAppClientId:
+    Type: String
+    Default: 1oeaodsmtgvqthl36301eh612a
   #HostedZoneName:
    # Type: String
    # Default: aramislabs.click.
@@ -48,6 +55,19 @@ Resources:
           - content-type
           - authorization
 
+  CognitoJwtAuthorizer:
+     Type: AWS::ApiGatewayV2::Authorizer
+     Properties:
+       ApiId: !Ref HttpApi
+       AuthorizerType: JWT
+       IdentitySource:
+         - $request.header.Authorization
+       Name: Auth_cognito
+       JwtConfiguration:
+         Audience:
+           - !Ref CognitoAppClientId
+         Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+  
   AlbVpcLinkIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
@@ -65,6 +85,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /employees"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   EmployeesPostRoute:
     Type: AWS::ApiGatewayV2::Route
