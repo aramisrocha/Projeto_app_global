@@ -4,7 +4,7 @@ Description: "Root stack - creates Network layer using nested stack (templates/n
 Parameters:
   ProjectName:
     Type: String
-    Default: "myproject"
+    Default: "App_global"
     Description: "Prefix used in resource names/tags"
 
   Environment:
@@ -149,7 +149,7 @@ Resources:
        Parameters:
          ProjectName: !Ref ProjectName
          Environment: !Ref Environment
-         BucketName:  !Sub "aramis-app-global-${Environment}"
+         BucketName: "aramis-app-global-regiao01"
          #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
 
   CloudFrontStack:
