@@ -128,8 +128,7 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /health"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
+
 
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
