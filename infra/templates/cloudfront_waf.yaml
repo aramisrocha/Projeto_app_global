@@ -10,9 +10,9 @@ Parameters:
 
   S3WebsiteEndpoint:
     Type: String
-    Default: aramis-app-global-dev.s3-website-us-east-1.amazonaws.com
+    #Default: aramis-app-global-dev.s3-website-us-east-1.amazonaws.com
     #DomainName: !GetAtt S3Bucket.WebsiteURL
-    
+    Default: aramis-app-global-regiao01-prd.s3-website-us-east-1.amazonaws.com
 
 Resources:
 
