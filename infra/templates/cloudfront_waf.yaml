@@ -4,15 +4,18 @@ Description: CloudFront + S3 Website + WAF
 Parameters:
   BucketName:
     Type: String  
+
   DomainName:
     Type: String
     Default: www.aramislabs.click
 
-  S3WebsiteEndpoint:
+  S3WebsiteEndpoint1:
     Type: String
-    #Default: aramis-app-global-dev.s3-website-us-east-1.amazonaws.com
-    #DomainName: !GetAtt S3Bucket.WebsiteURL
     Default: aramis-app-global-regiao01-prd.s3-website-us-east-1.amazonaws.com
+    
+  S3WebsiteEndpoint2:
+    Type: String
+    Default: aramis-app-global-regiao02-prod.s3-website-eu-west-1.amazonaws.com 
 
 Resources:
 
@@ -87,15 +90,35 @@ Resources:
         DefaultRootObject: index.html
 
         Origins:
-          - Id: S3Origin
-            DomainName: !Ref S3WebsiteEndpoint
-            #DomainName: !Sub "${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
-            #DomainName: !Sub "${BucketName}.s3-website-${AWS::Region}.amazonaws.com"
+          - Id: S3OriginRegion1
+            DomainName: !Ref S3WebsiteEndpoint1
             CustomOriginConfig:
               OriginProtocolPolicy: http-only
 
+          - Id: S3OriginRegion2
+            DomainName: !Ref S3WebsiteEndpoint2
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+
+        OriginGroups:
+          Quantity: 1
+          Items:
+            - Id: S3OriginGroup
+              FailoverCriteria:
+                StatusCodes:
+                  Quantity: 3
+                  Items:
+                    - 403
+                    - 404
+                    - 500
+              Members:
+                Quantity: 2
+                Items:
+                  - OriginId: S3OriginRegion1
+                  - OriginId: S3OriginRegion2
+
         DefaultCacheBehavior:
-          TargetOriginId: S3Origin
+          TargetOriginId: S3OriginGroup
           ViewerProtocolPolicy: redirect-to-https
           AllowedMethods:
             - GET
@@ -105,11 +128,6 @@ Resources:
             - GET
             - HEAD
           Compress: true
-
-          ForwardedValues:
-            QueryString: false
-            Cookies:
-              Forward: none
 
         PriceClass: PriceClass_All
 
