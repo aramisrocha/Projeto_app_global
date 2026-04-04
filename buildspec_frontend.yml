@@ -18,6 +18,7 @@ phases:
     commands:
       - echo "Subindo para S3..."
       - aws s3 sync dist/ s3://aramis-app-global-regiao01-prd --delete
+      - aws s3 sync dist/ s3://aramis-app-global-regiao02-prod --delete
 
 artifacts:
   files:
