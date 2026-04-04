@@ -8,9 +8,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: prd
     AllowedValues: [dev, hml, prd]
-    Description: "Environment name"
+    Description: "Prod"
 
   TableName:
     Type: String
