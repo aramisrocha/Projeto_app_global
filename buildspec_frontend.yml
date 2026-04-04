@@ -17,7 +17,7 @@ phases:
   post_build:
     commands:
       - echo "Subindo para S3..."
-      - aws s3 sync dist/ s3://aramis-app-global-dev --delete
+      - aws s3 sync dist/ s3://aramis-app-global-regiao01-prd --delete
 
 artifacts:
   files:
