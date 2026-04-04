@@ -9,8 +9,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "dev"
-    AllowedValues: ["dev", "hml", "prod", "dr"]
+    Default: "prd"
+    AllowedValues: ["dev", "hml", "prd", "dr"]
     Description: "Environment name"
 
   VpcCidr:
