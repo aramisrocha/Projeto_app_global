@@ -63,6 +63,10 @@ Parameters:
     Type: String
     Default: www.aramislabs.click
     
+  S3WebsiteEndpoint:
+    Type: String
+    Default: aramis-app-global-regiao02-prod.s3-website-eu-west-1.amazonaws.com
+    
 Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
@@ -169,3 +173,4 @@ Resources:
         #BucketName:  !Sub "aramis-app-global-${Environment}"
         #BucketName: !Sub "aramis-app-global-${FrontendEnvironment}" 
         BucketName: !Sub "aramis-app-global-regiao02-${Environment}"       
+   
