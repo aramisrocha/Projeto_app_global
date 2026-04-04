@@ -35,8 +35,10 @@ DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT")
 #dynamodb = boto3.resource("dynamodb")
 
 
-EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "EMPLOYEES_TABLE")
-CLOCK_TABLE = os.getenv("CLOCK_TABLE", "CLOCK_TABLE")
+#EMPLOYEES_TABLE = os.getenv("EMPLOYEES_TABLE", "EMPLOYEES_TABLE")
+EMPLOYEES_TABLE = os.getenv("app-global-prd-employees", "app-global-prd-employees")
+#CLOCK_TABLE = os.getenv("CLOCK_TABLE", "CLOCK_TABLE")
+CLOCK_TABLE = os.getenv("app-global-prd-clock", "app-global-prd-clock")
 dynamodb = boto3.resource(
     "dynamodb",
     #endpoint_url="http://192.168.10.100:8000",
