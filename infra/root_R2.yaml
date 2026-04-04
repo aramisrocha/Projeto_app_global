@@ -9,7 +9,7 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "dev"
+    Default: "prod"
     #AllowedValues: ["PROD", "PRODR2"]
     AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Variaveis para definir "
