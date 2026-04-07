@@ -4,18 +4,31 @@ Description: Nested stack - API Gateway v2 VPC Link using VPC/Subnets from Netwo
 Parameters:
   ProjectName:
     Type: String
+
   Environment:
     Type: String
+
   VpcLinkName:
     Type: String
     Default: VPC_Link_app_global
+
   VpcId:
     Type: AWS::EC2::VPC::Id
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id  
+
   PrivateSubnetIds:
     Type: String
 
+  EndpointSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
 
 Resources:
+
   VpcLinkSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -37,7 +50,6 @@ Resources:
     Type: AWS::ApiGatewayV2::VpcLink
     Properties:
       Name: !Sub "${VpcLinkName}-${Environment}"
-      #SubnetIds: !Split [",", { "Fn::ImportValue": { "Fn::Sub": "${ProjectName}-${Environment}-PublicSubnetIds" } }]
       SubnetIds: !Split [",", !Ref PrivateSubnetIds]
       SecurityGroupIds:
         - !Ref VpcLinkSecurityGroup
@@ -45,7 +57,34 @@ Resources:
         Project: !Ref ProjectName
         Environment: !Ref Environment
 
+  EcrFipsApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.api"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroupId
+      PrivateDnsEnabled: true
+
+  EcrFipsDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.dkr"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroupId
+      PrivateDnsEnabled: true
+
 Outputs:
+
   VpcLinkId:
     Description: VPC Link ID
     Value: !Ref ApiGatewayVpcLink
@@ -57,3 +96,11 @@ Outputs:
     Value: !Ref VpcLinkSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcLinkSecurityGroupId"
+
+  EcrFipsApiEndpointId:
+    Description: ECR FIPS API Endpoint ID
+    Value: !Ref EcrFipsApiEndpoint
+
+  EcrFipsDkrEndpointId:
+    Description: ECR FIPS DKR Endpoint ID
+    Value: !Ref EcrFipsDkrEndpoint
