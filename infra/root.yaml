@@ -28,11 +28,19 @@ Parameters:
     Type: String
     Default: "10.0.0.0/16"
 
-  PublicSubnet1Cidr:
+  # PublicSubnet1Cidr:
+  #   Type: String
+  #   Default: "10.0.1.0/24"
+
+  # PublicSubnet2Cidr:
+  #   Type: String
+  #   Default: "10.0.2.0/24"
+
+  PrivateSubnet1Cidr:
     Type: String
     Default: "10.0.1.0/24"
 
-  PublicSubnet2Cidr:
+  PrivateSubnet2Cidr:
     Type: String
     Default: "10.0.2.0/24"
 
@@ -62,8 +70,10 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcCidr: !Ref VpcCidr
-        PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
-        PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
+        #PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
+        #PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
+        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+        PrivateSubnet2Cidr: !Ref  PrivateSubnet2Cidr
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport
 
@@ -76,7 +86,8 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
-        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds    
+        #PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds    
+        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
 
   DynamoDBStack:
     Type: AWS::CloudFormation::Stack
@@ -96,7 +107,7 @@ Resources:
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
-        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
         AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
@@ -119,7 +130,8 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+        #PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
  
   ApiGatewayStack:
     Type: AWS::CloudFormation::Stack
@@ -168,23 +180,38 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcId"
 
-  PublicSubnetIds:
+  # PublicSubnetIds:
+  #   Description: "Public subnet IDs (from nested NetworkStack)"
+  #   Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+  #   Export:
+  #     Name: !Sub "${ProjectName}-${Environment}-PublicSubnetIds"
+
+ 
+  PrivateSubnetIds:
     Description: "Public subnet IDs (from nested NetworkStack)"
-    Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+    Value: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-PublicSubnetIds"
+      Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds"
+
+
+  # PublicRouteTableId:
+  #   Description: "Public route table ID (from nested NetworkStack)"
+  #   Value: !GetAtt NetworkStack.Outputs.PublicRouteTableId
+  #   Export:
+  #     Name: !Sub "${ProjectName}-${Environment}-PublicRouteTableId"
+
 
   PublicRouteTableId:
     Description: "Public route table ID (from nested NetworkStack)"
-    Value: !GetAtt NetworkStack.Outputs.PublicRouteTableId
+    Value: !GetAtt NetworkStack.Outputs.PrivateRouteTableId
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-PublicRouteTableId"
+      Name: !Sub "${ProjectName}-${Environment}-PrivateRouteTableId"
 
-  InternetGatewayId:
-    Description: "IGW ID (from nested NetworkStack)"
-    Value: !GetAtt NetworkStack.Outputs.InternetGatewayId
-    Export:
-      Name: !Sub "${ProjectName}-${Environment}-InternetGatewayId"
+  # InternetGatewayId:
+  #   Description: "IGW ID (from nested NetworkStack)"
+  #   Value: !GetAtt NetworkStack.Outputs.InternetGatewayId
+  #   Export:
+  #     Name: !Sub "${ProjectName}-${Environment}-InternetGatewayId"
  
   FrontendURL:
     Value: !GetAtt FrontendStack.Outputs.WebsiteURL
