@@ -224,7 +224,7 @@ Outputs:
     Description: Private Subnet IDs as comma-separated string
     Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds-v2"
+      Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds-r1"
 
   PrivateSubnet1Id:
     Description: "Public Subnet 1 ID"
