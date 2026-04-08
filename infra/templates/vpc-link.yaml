@@ -57,31 +57,7 @@ Resources:
         Project: !Ref ProjectName
         Environment: !Ref Environment
 
-  EcrFipsApiEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.api"
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroupId
-      PrivateDnsEnabled: true
 
-  EcrFipsDkrEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.dkr"
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroupId
-      PrivateDnsEnabled: true
 
 Outputs:
 
@@ -97,10 +73,3 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcLinkSecurityGroupId"
 
-  EcrFipsApiEndpointId:
-    Description: ECR FIPS API Endpoint ID
-    Value: !Ref EcrFipsApiEndpoint
-
-  EcrFipsDkrEndpointId:
-    Description: ECR FIPS DKR Endpoint ID
-    Value: !Ref EcrFipsDkrEndpoint
