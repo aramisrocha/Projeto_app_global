@@ -15,17 +15,17 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
 
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet::Id
+  # PrivateSubnet1:
+  #   Type: AWS::EC2::Subnet::Id
 
-  PrivateSubnet2:
-    Type: AWS::EC2::Subnet::Id  
+  # PrivateSubnet2:
+  #   Type: AWS::EC2::Subnet::Id  
 
   PrivateSubnetIds:
     Type: String
 
-  EndpointSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
+  # EndpointSecurityGroupId:
+  #   Type: AWS::EC2::SecurityGroup::Id
 
 Resources:
 

@@ -115,7 +115,7 @@ Resources:
         PathPattern: "/*"
         ContainerPort: 8000
         DesiredCount: 2
-        AssignPublicIp: "ENABLED"
+        AssignPublicIp: "DISABLED"
         ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-64"
         #ImageUri: vpce-0fd26765dc55e7d37-3swwss2w.dkr.ecr-fips.us-east-1.vpce.amazonaws.com
         HealthCheckPath: "/health"
@@ -133,7 +133,7 @@ Resources:
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
         PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
- 
+ # Api gateway 
   ApiGatewayStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -152,7 +152,7 @@ Resources:
         #HostedZoneName: aramislabs.click.
         #HostedZoneId: Z00421932FD8154X80J2A
 
-# Frontend
+# Frontend hosted in S3 Website
   FrontendStack:
      Type: AWS::CloudFormation::Stack
      DependsOn:
