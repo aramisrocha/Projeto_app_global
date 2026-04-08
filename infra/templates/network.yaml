@@ -151,7 +151,7 @@ Outputs:
     Description: "Private Subnet IDs"
     Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds"
+      Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds-r1"
 
   PrivateRouteTableId:
     Description: "Private Route Table ID"
