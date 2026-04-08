@@ -93,7 +93,28 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref PrivateRouteTable
+  
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName}-${Environment}-endpoint-sg"
+      VpcId: !Ref VPC
 
+      SecurityGroupIngress:
+        # Permite tráfego HTTPS dentro da VPC
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16  # ajuste para sua VPC
+
+      SecurityGroupEgress:
+        # Libera saída para qualquer destino
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
   EcrFipsApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
