@@ -91,7 +91,7 @@ Resources:
       PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
       PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
       PrivateRouteTable: !GetAtt NetworkStack.Outputs.PrivateRouteTableId
-      ServiceSecurityGroupId: !GetAtt EcsStack.Outputs.ServiceSecurityGroupId      
+      #ServiceSecurityGroupId: !GetAtt EcsStack.Outputs.ServiceSecurityGroupId      
 
   AlbStack:
     Type: AWS::CloudFormation::Stack
@@ -115,6 +115,8 @@ Resources:
 # ECS
   EcsStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - EndpointsStack
     Properties:
       TemplateURL: templates/ECS.yaml
       Parameters:

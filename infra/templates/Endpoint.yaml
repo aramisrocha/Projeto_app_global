@@ -22,9 +22,9 @@ Parameters:
   PrivateRouteTable:
     Type: String
 
-  ServiceSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: Security Group do ECS Service
+  # ServiceSecurityGroupId:
+  #   Type: AWS::EC2::SecurityGroup::Id
+  #   Description: Security Group do ECS Service
 
 Resources:
 
@@ -43,7 +43,8 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          SourceSecurityGroupId: !Ref ServiceSecurityGroupId
+          CidrIp: 10.0.0.0/16
+          #SourceSecurityGroupId: !Ref ServiceSecurityGroupId
 
       SecurityGroupEgress:
         - IpProtocol: -1
