@@ -33,6 +33,9 @@ Parameters:
     Default: "true"
     AllowedValues: ["true", "false"]
 
+  EcsServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
 Resources:
 
   VPC:
@@ -100,7 +103,8 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: 10.0.0.0/16
+          SourceSecurityGroupId: !Ref EcsServiceSecurityGroupId
+          #CidrIp: 10.0.0.0/16
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
