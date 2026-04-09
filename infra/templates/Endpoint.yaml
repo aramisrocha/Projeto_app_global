@@ -24,7 +24,7 @@ Resources:
 
   # ----------------------------------------
   # Security Group para os endpoints
--
+  # ----------------------------------------
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     DeletionPolicy: Delete
