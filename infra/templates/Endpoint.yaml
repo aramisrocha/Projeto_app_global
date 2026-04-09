@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Endpoints (ECR FIPS API, ECR FIPS DKR, S3 Gateway)
+Description: VPC Endpoints (ECR API, ECR DKR, S3 Gateway)
 
 Parameters:
   ProjectName:
@@ -17,14 +17,8 @@ Parameters:
   PrivateSubnet2:
     Type: AWS::EC2::Subnet::Id
 
-  # PrivateRouteTable:
-  #   Type: AWS::EC2::RouteTable::Id
   PrivateRouteTable:
     Type: String
-
-  # ServiceSecurityGroupId:
-  #   Type: AWS::EC2::SecurityGroup::Id
-  #   Description: Security Group do ECS Service
 
 Resources:
 
@@ -44,7 +38,6 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16
-          #SourceSecurityGroupId: !Ref ServiceSecurityGroupId
 
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -55,16 +48,16 @@ Resources:
           Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
 
   # ----------------------------------------
-  # ECR FIPS API Endpoint
+  # ECR API Endpoint
   # ----------------------------------------
-  EcrFipsApiEndpoint:
+  EcrApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
       VpcId: !Ref VPC
       VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.api"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
       PrivateDnsEnabled: true
 
       SubnetIds:
@@ -75,16 +68,16 @@ Resources:
         - !Ref EndpointSecurityGroup
 
   # ----------------------------------------
-  # ECR FIPS DKR Endpoint
+  # ECR DKR Endpoint
   # ----------------------------------------
-  EcrFipsDkrEndpoint:
+  EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
       VpcId: !Ref VPC
       VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.dkr"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
       PrivateDnsEnabled: true
 
       SubnetIds:
@@ -113,3 +106,15 @@ Outputs:
   EndpointSecurityGroupId:
     Description: Security Group dos endpoints
     Value: !Ref EndpointSecurityGroup
+
+  EcrApiEndpointId:
+    Description: ID do VPC Endpoint ECR API
+    Value: !Ref EcrApiEndpoint
+
+  EcrDkrEndpointId:
+    Description: ID do VPC Endpoint ECR DKR
+    Value: !Ref EcrDkrEndpoint
+
+  S3GatewayEndpointId:
+    Description: ID do VPC Endpoint S3 Gateway
+    Value: !Ref S3GatewayEndpoint
