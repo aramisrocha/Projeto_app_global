@@ -17,8 +17,10 @@ Parameters:
   PrivateSubnet2:
     Type: AWS::EC2::Subnet::Id
 
+  # PrivateRouteTable:
+  #   Type: AWS::EC2::RouteTable::Id
   PrivateRouteTable:
-    Type: AWS::EC2::RouteTable::Id
+    Type: String
 
   ServiceSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id

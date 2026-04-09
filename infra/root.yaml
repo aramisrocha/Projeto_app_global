@@ -83,7 +83,7 @@ Resources:
    DeletionPolicy: Delete
    UpdateReplacePolicy: Delete
    Properties:
-    TemplateURL: templates/endpoints.yaml
+    TemplateURL: templates/Endpoint.yaml
     Parameters:
       ProjectName: !Ref ProjectName
       Environment: !Ref Environment
