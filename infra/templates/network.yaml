@@ -33,8 +33,11 @@ Parameters:
     Default: "true"
     AllowedValues: ["true", "false"]
 
-  EcsServiceSecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
+  # EcsServiceSecurityGroupId:
+  #   Type: AWS::EC2::SecurityGroup::Id
+
+  # ServiceSecurityGroupId:
+  #   Type: AWS::EC2::SecurityGroup::Id
 
 Resources:
 
@@ -96,6 +99,8 @@ Resources:
 
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       GroupDescription: !Sub "${ProjectName}-${Environment}-endpoint-sg"
       VpcId: !Ref VPC
@@ -103,8 +108,9 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          SourceSecurityGroupId: !Ref EcsServiceSecurityGroupId
-          #CidrIp: 10.0.0.0/16
+          #SourceSecurityGroupId: !Ref EcsServiceSecurityGroupId
+          #SourceSecurityGroupId: !Ref ServiceSecurityGroupId
+          CidrIp: 10.0.0.0/16
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -112,40 +118,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
 
-  EcrFipsApiEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VPC
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.api"
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroup
-      PrivateDnsEnabled: true
 
-  EcrFipsDkrEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VPC
-      VpcEndpointType: Interface
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.dkr"
-      SubnetIds:
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-      SecurityGroupIds:
-        - !Ref EndpointSecurityGroup
-      PrivateDnsEnabled: true
-
-  S3GatewayEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Gateway
-      VpcId: !Ref VPC   
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
-      RouteTableIds:
-        - !Ref PrivateRouteTable
 
 Outputs:
 
@@ -162,9 +135,16 @@ Outputs:
   PrivateRouteTableId:
     Description: "Private Route Table ID"
     Value: !Ref PrivateRouteTable
+    
+  PrivateSubnet1Id:
+    Description: "Private subnet Table ID"
+    Value: !Ref PrivateSubnet1 
+   
+  PrivateSubnet2Id:
+    Description: "Private subnet Table ID"
+    Value: !Ref PrivateSubnet2
+  # EcrFipsApiEndpointId:
+  #   Value: !Ref EcrFipsApiEndpoint
 
-  EcrFipsApiEndpointId:
-    Value: !Ref EcrFipsApiEndpoint
-
-  EcrFipsDkrEndpointId:
-    Value: !Ref EcrFipsDkrEndpoint
+  # EcrFipsDkrEndpointId:
+  #   Value: !Ref EcrFipsDkrEndpoint

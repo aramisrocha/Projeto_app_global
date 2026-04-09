@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VPC Endpoints (ECR FIPS API, ECR FIPS DKR, S3 Gateway)
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable::Id
+
+  ServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security Group do ECS Service
+
+Resources:
+
+  # ----------------------------------------
+  # Security Group para os endpoints
+  # ----------------------------------------
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      GroupDescription: !Sub "${ProjectName}-${Environment}-endpoint-sg"
+      VpcId: !Ref VPC
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ServiceSecurityGroupId
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
+
+  # ----------------------------------------
+  # ECR FIPS API Endpoint
+  # ----------------------------------------
+  EcrFipsApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.api"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  # ----------------------------------------
+  # ECR FIPS DKR Endpoint
+  # ----------------------------------------
+  EcrFipsDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr-fips.dkr"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  # ----------------------------------------
+  # S3 Gateway Endpoint
+  # ----------------------------------------
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+Outputs:
+  EndpointSecurityGroupId:
+    Description: Security Group dos endpoints
+    Value: !Ref EndpointSecurityGroup
