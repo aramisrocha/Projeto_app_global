@@ -23,7 +23,7 @@ Parameters:
 Resources:
 
   # ----------------------------------------
-  # Security Group para os endpoints
+  # Security Group para os 
   # ----------------------------------------
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
