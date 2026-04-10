@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Endpoints (ECR API, ECR DKR, S3 Gateway)
+Description: VPC Endpoints (ECR API, ECR DKR, S3 Gateway, CloudWatch Logs)
 
 Parameters:
   ProjectName:
@@ -102,6 +102,26 @@ Resources:
       RouteTableIds:
         - !Ref PrivateRouteTable
 
+  # ----------------------------------------
+  # CloudWatch Logs Endpoint
+  # ----------------------------------------
+  CloudWatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
 Outputs:
   EndpointSecurityGroupId:
     Description: Security Group dos endpoints
@@ -118,3 +138,7 @@ Outputs:
   S3GatewayEndpointId:
     Description: ID do VPC Endpoint S3 Gateway
     Value: !Ref S3GatewayEndpoint
+
+  CloudWatchLogsEndpointId:
+    Description: ID do VPC Endpoint CloudWatch Logs
+    Value: !Ref CloudWatchLogsEndpoint
