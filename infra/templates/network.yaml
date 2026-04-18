@@ -8,8 +8,8 @@ Parameters:
 
   Environment:
     Type: String
-    Default: "prd"
-    AllowedValues: ["dev", "hml", "prd", "dr"]
+    Default: "prod"
+    AllowedValues: ["dev", "hml", "prod", "dr"]
 
   VpcCidr:
     Type: String
