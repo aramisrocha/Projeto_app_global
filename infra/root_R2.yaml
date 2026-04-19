@@ -92,7 +92,21 @@ Resources:
         #PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
         EnableDnsHostnames: !Ref EnableDnsHostnames
-        EnableDnsSupport: !Ref EnableDnsSupport    
+        EnableDnsSupport: !Ref EnableDnsSupport 
+  
+  EndpointsStack:
+   Type: AWS::CloudFormation::Stack
+   DeletionPolicy: Delete
+   UpdateReplacePolicy: Delete
+   Properties:
+    TemplateURL: templates/Endpoint.yaml
+    Parameters:
+      ProjectName: !Ref ProjectName
+      Environment: !Ref Environment
+      VPC: !GetAtt NetworkStack.Outputs.VpcId
+      PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
+      PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
+      PrivateRouteTable: !GetAtt NetworkStack.Outputs.PrivateRouteTableId          
   
   # Subindo aplication load balance
   AlbStack:
@@ -109,6 +123,8 @@ Resources:
 # ECS
   EcsStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - EndpointsStack
     Properties:
       TemplateURL: templates/ECS.yaml
       Parameters:
