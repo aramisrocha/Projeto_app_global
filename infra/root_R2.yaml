@@ -129,6 +129,7 @@ Resources:
       TemplateURL: templates/ECS.yaml
       Parameters:
         ProjectName: "app-global"
+        DeploymentControllerType: "CODE_DEPLOY"
         Environment: "dr"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
