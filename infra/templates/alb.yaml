@@ -6,7 +6,7 @@ Parameters:
     Type: String
   Environment:
     Type: String
-
+# Vpc and Subnets created in network template
   VpcId:
     Type: AWS::EC2::VPC::Id
 
@@ -16,18 +16,18 @@ Parameters:
   AlbIngressCidr:
     Type: String
     Default: "0.0.0.0/0"
-    Description: "CIDR allowed to access ALB (HTTP 80)."
+    Description: "CIDR allowed to access ALB port 80."
 
-  # Porta do container no ECS (onde sua aplicação escuta)
+  # Porta do container no ECS
   TargetPort:
     Type: Number
     Default: 8080
 
-  # Path de health check do seu app (ajuste conforme sua app)
+  # Path de health check do seu app 
   HealthCheckPath:
     Type: String
     Default: "/health"
-
+# SG for ALB
 Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -49,12 +49,11 @@ Resources:
           Value: !Ref ProjectName
         - Key: Environment
           Value: !Ref Environment
-
+# ALB with iinternal-scheme
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjectName}-${Environment}-alb"
-      #Scheme: internet-facing
       Scheme: internal
       Type: application
       IpAddressType: ipv4
@@ -70,7 +69,7 @@ Resources:
           Value: !Ref Environment
 
 
-
+# Main listener on port 80
   AlbHttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -83,7 +82,7 @@ Resources:
           StatusCode: "404"
           ContentType: "text/plain"
           MessageBody: "No rule matched"
-
+# Test listener on port 8080 
   AlbHttpListenerTeste:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -113,7 +112,4 @@ Outputs:
     Description: "ALB DNS Name"
     Value: !GetAtt ApplicationLoadBalancer.DNSName
 
-  #AlbTargetGroupArn:
-  #  Description: "ALB Target Group ARN (use no ECS Service -> LoadBalancers)"
-  #  Value: !Ref AlbTargetGroup
 

@@ -11,10 +11,12 @@ Parameters:
     Default: "prd"
     AllowedValues: ["dev", "hml", "prd", "dr"]
 
+  # VPC CIDR block — defines the private IP address space for the entire network
   VpcCidr:
     Type: String
     Default: "10.0.0.0/16"
 
+  # Each subnet occupies a /24 slice of the VPC CIDR, one per Availability Zone
   PrivateSubnet1Cidr:
     Type: String
     Default: "10.0.1.0/24"
@@ -23,6 +25,7 @@ Parameters:
     Type: String
     Default: "10.0.2.0/24"
 
+  # Required for VPC Endpoints with PrivateDnsEnabled — allows AWS SDK hostname resolution within the VPC
   EnableDnsHostnames:
     Type: String
     Default: "true"
@@ -33,14 +36,9 @@ Parameters:
     Default: "true"
     AllowedValues: ["true", "false"]
 
-  # EcsServiceSecurityGroupId:
-  #   Type: AWS::EC2::SecurityGroup::Id
-
-  # ServiceSecurityGroupId:
-  #   Type: AWS::EC2::SecurityGroup::Id
-
 Resources:
 
+  # Main VPC — fully private, no internet gateway attached
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -51,6 +49,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-vpc"
 
+  # Private subnet in AZ-a — hosts ECS tasks, ALB, and VPC Endpoints
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -64,6 +63,7 @@ Resources:
         - Key: Tier
           Value: private
 
+  # Private subnet in AZ-b — provides multi-AZ redundancy for ECS and VPC Endpoints
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
@@ -77,6 +77,8 @@ Resources:
         - Key: Tier
           Value: private
 
+  # Private route table — no default route to internet gateway or NAT
+  # S3 Gateway Endpoint adds a route entry here automatically
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -85,18 +87,22 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-rtb-private"
 
+  # Associates subnet-a with the private route table
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnet1
       RouteTableId: !Ref PrivateRouteTable
 
+  # Associates subnet-b with the private route table
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref PrivateRouteTable
 
+  # Shared security group for all Interface VPC Endpoints
+  # Allows HTTPS inbound from within the VPC CIDR only 
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     DeletionPolicy: Delete
@@ -108,8 +114,6 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          #SourceSecurityGroupId: !Ref EcsServiceSecurityGroupId
-          #SourceSecurityGroupId: !Ref ServiceSecurityGroupId
           CidrIp: 10.0.0.0/16
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -118,14 +122,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
 
-
-
 Outputs:
 
   VpcId:
     Description: "VPC ID"
     Value: !Ref VPC
 
+  # Exported as a comma-separated list, consumed by ECS and ALB modules as subnet targets
   PrivateSubnetIds:
     Description: "Private Subnet IDs"
     Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
@@ -133,18 +136,13 @@ Outputs:
       Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds-r1"
 
   PrivateRouteTableId:
-    Description: "Private Route Table ID"
+    Description: "Private Route Table ID — referenced by S3 Gateway Endpoint"
     Value: !Ref PrivateRouteTable
-    
-  PrivateSubnet1Id:
-    Description: "Private subnet Table ID"
-    Value: !Ref PrivateSubnet1 
-   
-  PrivateSubnet2Id:
-    Description: "Private subnet Table ID"
-    Value: !Ref PrivateSubnet2
-  # EcrFipsApiEndpointId:
-  #   Value: !Ref EcrFipsApiEndpoint
 
-  # EcrFipsDkrEndpointId:
-  #   Value: !Ref EcrFipsDkrEndpoint
+  PrivateSubnet1Id:
+    Description: "Private subnet AZ-a ID"
+    Value: !Ref PrivateSubnet1
+
+  PrivateSubnet2Id:
+    Description: "Private subnet AZ-b ID"
+    Value: !Ref PrivateSubnet2

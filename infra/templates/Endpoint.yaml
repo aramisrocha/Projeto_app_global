@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: VPC Endpoints for ecr, CloudWatch Logs)
+Description: VPC Endpoints for ECR, S3, CloudWatch Logs, and STS — allows private subnet resources to reach AWS services without internet access
 
 Parameters:
   ProjectName:
@@ -22,9 +22,7 @@ Parameters:
 
 Resources:
 
-  # ----------------------------------------
-  # Security Group para os 
-  # ----------------------------------------
+  # Shared security group for all Interface endpoints — allows HTTPS inbound from within the VPC only
   EndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     DeletionPolicy: Delete
@@ -32,24 +30,19 @@ Resources:
     Properties:
       GroupDescription: !Sub "${ProjectName}-${Environment}-endpoint-sg"
       VpcId: !Ref VPC
-
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16
-
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
 
-  # ----------------------------------------
-  # ECR API Endpoint
-  # ----------------------------------------
+  # Allows ECS tasks to call the ECR control plane API (authentication, image metadata) without internet
   EcrApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
@@ -59,17 +52,13 @@ Resources:
       VpcEndpointType: Interface
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
       PrivateDnsEnabled: true
-
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-
       SecurityGroupIds:
         - !Ref EndpointSecurityGroup
 
-  # ----------------------------------------
-  # ECR DKR Endpoint
-  # ----------------------------------------
+  # Allows ECS tasks to pull container image layers from ECR without internet
   EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
@@ -79,17 +68,14 @@ Resources:
       VpcEndpointType: Interface
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
       PrivateDnsEnabled: true
-
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-
       SecurityGroupIds:
         - !Ref EndpointSecurityGroup
 
-  # ----------------------------------------
-  # S3 Gateway Endpoint
-  # ----------------------------------------
+  # Gateway endpoint for S3 — required by ECR to fetch image layers stored in S3
+  # Gateway type routes traffic via the route table at no additional cost
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
@@ -98,13 +84,10 @@ Resources:
       VpcEndpointType: Gateway
       VpcId: !Ref VPC
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
-
       RouteTableIds:
         - !Ref PrivateRouteTable
 
-  # ----------------------------------------
-  # CloudWatch Logs Endpoint
-  # ----------------------------------------
+  # Allows ECS tasks to ship logs to CloudWatch without internet
   CloudWatchLogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
@@ -114,15 +97,13 @@ Resources:
       VpcEndpointType: Interface
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
       PrivateDnsEnabled: true
-
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-
       SecurityGroupIds:
         - !Ref EndpointSecurityGroup
 
- # STS for Boto3 framework .
+  # Allows ECS tasks to assume IAM roles via STS without internet — required by Boto3 and AWS SDKs
   StsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     DeletionPolicy: Delete
@@ -136,25 +117,25 @@ Resources:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
       SecurityGroupIds:
-        - !Ref EndpointSecurityGroup       
+        - !Ref EndpointSecurityGroup
 
 Outputs:
   EndpointSecurityGroupId:
-    Description: Security Group dos endpoints
+    Description: "Endpoint security group ID"
     Value: !Ref EndpointSecurityGroup
 
   EcrApiEndpointId:
-    Description: ID do VPC Endpoint ECR API
+    Description: "ECR API VPC Endpoint ID"
     Value: !Ref EcrApiEndpoint
 
   EcrDkrEndpointId:
-    Description: ID do VPC Endpoint ECR DKR
+    Description: "ECR DKR VPC Endpoint ID"
     Value: !Ref EcrDkrEndpoint
 
   S3GatewayEndpointId:
-    Description: ID do VPC Endpoint S3 Gateway
+    Description: "S3 Gateway VPC Endpoint ID"
     Value: !Ref S3GatewayEndpoint
 
   CloudWatchLogsEndpointId:
-    Description: ID do VPC Endpoint CloudWatch Logs
+    Description: "CloudWatch Logs VPC Endpoint ID"
     Value: !Ref CloudWatchLogsEndpoint

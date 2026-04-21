@@ -19,9 +19,8 @@ Parameters:
 
 Resources:
 
-# -----------------------------
-# WAF Web ACL
-# -----------------------------
+
+# WAFv2 WebACL attached to CloudFront, allows traffic by default, rules override on match
   WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
@@ -34,7 +33,7 @@ Resources:
         CloudWatchMetricsEnabled: true
         MetricName: app-global-waf
       Rules:
-
+# Blocks requests from IPs flagged by AWS threat intelligence 
         - Name: AWSManagedIPReputation
           Priority: 1
           OverrideAction:
@@ -47,7 +46,7 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: ip-reputation
-
+# Protects against OWASP Top 10 threats: SQL injection, XSS, and HTTP protocol violations
         - Name: AWSManagedCommonRules
           Priority: 2
           OverrideAction:
@@ -60,7 +59,7 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: common-rules
-
+# Rejects requests matching known exploit signatures, including Log4Shell and other vulnerability probes
         - Name: AWSManagedKnownBadInputs
           Priority: 3
           OverrideAction:
@@ -74,9 +73,9 @@ Resources:
             CloudWatchMetricsEnabled: true
             MetricName: bad-inputs
 
-# -----------------------------
+
 # CloudFront Distribution
-# -----------------------------
+
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -88,7 +87,7 @@ Resources:
           - !Ref DomainName
 
         DefaultRootObject: index.html
-
+# Static frontend assets are served from S3 buckets deployed in both regions us-east-1 and eu-west-1
         Origins:
           - Id: S3OriginRegion1
             DomainName: !Ref S3WebsiteEndpoint1
@@ -99,7 +98,7 @@ Resources:
             DomainName: !Ref S3WebsiteEndpoint2
             CustomOriginConfig:
               OriginProtocolPolicy: http-only
-
+# Failover criteria: CloudFront switches to the secondary S3 origin on 403, 404, or 500 responses
         OriginGroups:
           Quantity: 1
           Items:
@@ -119,7 +118,8 @@ Resources:
 
         DefaultCacheBehavior:
           TargetOriginId: S3OriginGroup
-          ViewerProtocolPolicy: redirect-to-https
+  # Enforces HTTPS-only traffic, HTTP requests are automatically redirected to HTTPS
+          ViewerProtocolPolicy: redirect-to-https 
           AllowedMethods:
             - GET
             - HEAD
@@ -128,15 +128,15 @@ Resources:
             - GET
             - HEAD
           Compress: true
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized (AWS Managed)
-
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized AWS Managed
+# PriceClass_All enables all CloudFront edge locations globally, maximizing coverage at the cost of higher distribution fees
         PriceClass: PriceClass_All
-
+# TLS terminated at CloudFront edge via ACM hosted in us-east-1, SNI-only and WAF enforced
         ViewerCertificate:
           AcmCertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
-
+#  Attaches the WAF WebACL to inspect all incoming requests at the edge
         WebACLId: !GetAtt WebACL.Arn
 
 Outputs:

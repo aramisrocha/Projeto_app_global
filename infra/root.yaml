@@ -13,7 +13,7 @@ Parameters:
     AllowedValues: ["dev", "hml", "prd", "dr"]
     Description: "Environment name"
 
-  # Bucket/prefix onde os templates (inclusive templates/network.yaml) foram publicados
+  # S3 bucket and prefix where all nested stack templates are stored
   TemplateBucket:
     Type: String
     Description: "S3 bucket that stores CloudFormation templates"
@@ -23,18 +23,9 @@ Parameters:
     Default: "artifacts/cloudformation"
     Description: "S3 prefix/folder where templates are stored"
 
-  # Parâmetros repassados ao módulo de rede
   VpcCidr:
     Type: String
     Default: "10.0.0.0/16"
-
-  # PublicSubnet1Cidr:
-  #   Type: String
-  #   Default: "10.0.1.0/24"
-
-  # PublicSubnet2Cidr:
-  #   Type: String
-  #   Default: "10.0.2.0/24"
 
   PrivateSubnet1Cidr:
     Type: String
@@ -53,46 +44,45 @@ Parameters:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
-  
+
   DomainName:
     Type: String
     Default: www.aramislabs.click
 
 Resources:
+
+  # Foundation layer — VPC, private subnets, and route tables
+  # All other stacks depend on outputs from this stack
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      # O arquivo precisa estar no S3 nesse camin
-      # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
-      #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
       TemplateURL: templates/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcCidr: !Ref VpcCidr
-        #PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
-        #PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
-        PrivateSubnet2Cidr: !Ref  PrivateSubnet2Cidr
+        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport
-        #ServiceSecurityGroupId: !GetAtt EcsStack.Outputs.ServiceSecurityGroupId
-  
-  EndpointsStack:
-   Type: AWS::CloudFormation::Stack
-   DeletionPolicy: Delete
-   UpdateReplacePolicy: Delete
-   Properties:
-    TemplateURL: templates/Endpoint.yaml
-    Parameters:
-      ProjectName: !Ref ProjectName
-      Environment: !Ref Environment
-      VPC: !GetAtt NetworkStack.Outputs.VpcId
-      PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
-      PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
-      PrivateRouteTable: !GetAtt NetworkStack.Outputs.PrivateRouteTableId
-      #ServiceSecurityGroupId: !GetAtt EcsStack.Outputs.ServiceSecurityGroupId      
 
+  # VPC Endpoints for ECR, S3, CloudWatch Logs, and STS
+  # Must be provisioned before ECS to ensure tasks can pull images without internet access
+  EndpointsStack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: templates/Endpoint.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VPC: !GetAtt NetworkStack.Outputs.VpcId
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1Id
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
+        PrivateRouteTable: !GetAtt NetworkStack.Outputs.PrivateRouteTableId
+
+  # Internal ALB — entry point for all traffic routed from API Gateway via VPC Link
   AlbStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -101,10 +91,9 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        #PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
-        #PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds    
         PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
 
+  # DynamoDB Global Tables for points, employees, and clock — replicated across regions
   DynamoDBStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -112,7 +101,8 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-# ECS
+
+  # ECS Fargate cluster and service — DependsOn EndpointsStack ensures VPC Endpoints
   EcsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -123,10 +113,7 @@ Resources:
         ProjectName: "app-global"
         DeploymentControllerType: "CODE_DEPLOY"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
-        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
         PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
-        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
         AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ListenerRulePriority: 10
@@ -135,12 +122,11 @@ Resources:
         DesiredCount: 2
         AssignPublicIp: "DISABLED"
         ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-64"
-        #ImageUri: vpce-0fd26765dc55e7d37-3swwss2w.dkr.ecr-fips.us-east-1.vpce.amazonaws.com
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
         EnvironmentClockTable: "ClockRecords"
 
-
+  # VPC Link bridges API Gateway HTTP API to the internal ALB
   VpcLinkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -149,9 +135,10 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        #PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
         PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
- # Api gateway 
+
+  # API Gateway with JWT authorization, custom domain, and VPC Link integration
+  # DependsOn ensures VPC Link and ALB are ready before routes are created
   ApiGatewayStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -163,34 +150,32 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
-        #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
         AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ApiCustomDomainName: apiglobal.aramislabs.click
         CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
-        #HostedZoneName: aramislabs.click.
-        #HostedZoneId: Z00421932FD8154X80J2A
 
-# Frontend hosted in S3 Website
+  # S3 bucket configured for static website hosting — serves the frontend SPA
   FrontendStack:
-     Type: AWS::CloudFormation::Stack
-     DependsOn:
-       - ApiGatewayStack
-     Properties:
-       TemplateURL: templates/s3.yaml
-       Parameters:
-         ProjectName: !Ref ProjectName
-         Environment: !Ref Environment
-         BucketName: !Sub "aramis-app-global-regiao01-${Environment}"
-         #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ApiGatewayStack
+    Properties:
+      TemplateURL: templates/s3.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        BucketName: !Sub "aramis-app-global-regiao01-${Environment}"
 
+  # CloudFront distribution with WAF — CDN layer for the frontend S3 bucket
+  # DependsOn FrontendStack ensures the S3 origin exists before the distribution is created
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: FrontendStack
     Properties:
-       TemplateURL: templates/cloudfront_waf.yaml
-       Parameters:
-         BucketName: !GetAtt FrontendStack.Outputs.BucketName
-         DomainName: !Ref DomainName
+      TemplateURL: templates/cloudfront_waf.yaml
+      Parameters:
+        BucketName: !GetAtt FrontendStack.Outputs.BucketName
+        DomainName: !Ref DomainName
 
 Outputs:
   VpcId:
@@ -199,38 +184,17 @@ Outputs:
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcId"
 
-  # PublicSubnetIds:
-  #   Description: "Public subnet IDs (from nested NetworkStack)"
-  #   Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
-  #   Export:
-  #     Name: !Sub "${ProjectName}-${Environment}-PublicSubnetIds"
-
- 
   PrivateSubnetIds:
-    Description: "Public subnet IDs (from nested NetworkStack)"
+    Description: "Private subnet IDs (from nested NetworkStack)"
     Value: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PrivateSubnetIds"
 
-
-  # PublicRouteTableId:
-  #   Description: "Public route table ID (from nested NetworkStack)"
-  #   Value: !GetAtt NetworkStack.Outputs.PublicRouteTableId
-  #   Export:
-  #     Name: !Sub "${ProjectName}-${Environment}-PublicRouteTableId"
-
-
   PublicRouteTableId:
-    Description: "Public route table ID (from nested NetworkStack)"
+    Description: "Private route table ID (from nested NetworkStack)"
     Value: !GetAtt NetworkStack.Outputs.PrivateRouteTableId
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PrivateRouteTableId"
 
-  # InternetGatewayId:
-  #   Description: "IGW ID (from nested NetworkStack)"
-  #   Value: !GetAtt NetworkStack.Outputs.InternetGatewayId
-  #   Export:
-  #     Name: !Sub "${ProjectName}-${Environment}-InternetGatewayId"
- 
   FrontendURL:
     Value: !GetAtt FrontendStack.Outputs.WebsiteURL

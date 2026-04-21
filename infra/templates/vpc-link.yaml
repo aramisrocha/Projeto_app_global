@@ -15,20 +15,13 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
 
-  # PrivateSubnet1:
-  #   Type: AWS::EC2::Subnet::Id
-
-  # PrivateSubnet2:
-  #   Type: AWS::EC2::Subnet::Id  
-
+  # Comma-separated subnet IDs, split at resource level via !Split
   PrivateSubnetIds:
     Type: String
 
-  # EndpointSecurityGroupId:
-  #   Type: AWS::EC2::SecurityGroup::Id
-
 Resources:
 
+  # Allows API Gateway VPC Link to reach the internal ALB on port 80
   VpcLinkSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -46,6 +39,8 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-apigw-vpc-link-sg"
 
+  # VPC Link bridges API Gateway HTTP API to the internal ALB inside the VPC
+  # Subnet IDs are split from the comma-separated parameter string
   ApiGatewayVpcLink:
     Type: AWS::ApiGatewayV2::VpcLink
     Properties:
@@ -57,10 +52,9 @@ Resources:
         Project: !Ref ProjectName
         Environment: !Ref Environment
 
-
-
 Outputs:
 
+  # Exported and consumed by the API Gateway module to attach routes to the VPC Link integration
   VpcLinkId:
     Description: VPC Link ID
     Value: !Ref ApiGatewayVpcLink
@@ -72,4 +66,3 @@ Outputs:
     Value: !Ref VpcLinkSecurityGroup
     Export:
       Name: !Sub "${ProjectName}-${Environment}-VpcLinkSecurityGroupId"
-

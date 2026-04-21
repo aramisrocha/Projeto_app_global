@@ -1,51 +1,50 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "DynamoDB - Sistema de Pontos (single-table design) + employees/clock tables (Global Tables)"
+Description: "DynamoDB - Points system (single-table design) + employees/clock tables (Global Tables)"
 
 Parameters:
   ProjectName:
     Type: String
-    Description: "Nome do projeto (ex: app-global)"
+    Description: "Project name"
 
   Environment:
     Type: String
     AllowedValues: [dev, hml, prd]
-    Description: "Ambiente de deploy"
+    Description: "Deployment environment"
 
   TableName:
     Type: String
     Default: ""
-    Description: "Opcional: nome da tabela Points. Se vazio, será gerado automaticamente."
+    Description: "Optional custom table name — defaults to {ProjectName}-{Environment}-points if left empty"
 
   EnableTTL:
     Type: String
     AllowedValues: ["true", "false"]
     Default: "true"
-    Description: "Habilitar TTL nas tabelas"
+    Description: "Enable TTL for automatic item expiration"
 
   TTLAttributeName:
     Type: String
     Default: "ttl"
-    Description: "Nome do atributo TTL (Unix epoch em segundos)"
+    Description: "Attribute name used for TTL expiration"
 
   EnablePITR:
     Type: String
     AllowedValues: ["true", "false"]
     Default: "false"
-    Description: "Habilitar Point-in-time recovery (PITR)"
+    Description: "Enable Point-in-Time Recovery (PITR)"
 
 Conditions:
+  # Resolves whether a custom table name was provided
   HasCustomTableName: !Not [!Equals [!Ref TableName, ""]]
   TTLIsEnabled: !Equals [!Ref EnableTTL, "true"]
   PITRIsEnabled: !Equals [!Ref EnablePITR, "true"]
 
 Resources:
 
-  # ---------------------------------------------------------------------------
-  # POINTS TABLE — Global Table (multi-region)
-  # Motivo: tinha Replicas indevidamente em AWS::DynamoDB::Table.
-  # AWS::DynamoDB::GlobalTable é o tipo correto para replicação multi-região.
-  # StreamSpecification é OBRIGATÓRIO em GlobalTable.
-  # ---------------------------------------------------------------------------
+  # -------------------------------------------------------
+  # Points table — single-table design with GSI
+  # Replicated across us-east-1 and eu-west-1
+  # -------------------------------------------------------
   PointsGlobalTable:
     Type: AWS::DynamoDB::GlobalTable
     DeletionPolicy: Delete
@@ -55,6 +54,7 @@ Resources:
         - HasCustomTableName
         - !Ref TableName
         - !Sub "${ProjectName}-${Environment}-points"
+      # On-demand billing — no capacity planning required
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
@@ -83,11 +83,11 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-      # OBRIGATÓRIO para GlobalTable
+      # Required for GlobalTable — streams changes to all replicas
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 
-      # Réplicas devem ficar aqui (GlobalTable), não em AWS::DynamoDB::Table
+      # Regional replicas — PITR configured per replica
       Replicas:
         - Region: us-east-1
           PointInTimeRecoverySpecification: !If
@@ -114,20 +114,20 @@ Resources:
             - Key: Service
               Value: "points"
 
+      # Encryption at rest using AWS-managed keys
       SSESpecification:
         SSEEnabled: true
 
+      # TTL conditionally enabled — expired items are automatically deleted
       TimeToLiveSpecification: !If
         - TTLIsEnabled
         - AttributeName: !Ref TTLAttributeName
           Enabled: true
         - !Ref "AWS::NoValue"
 
-  # ---------------------------------------------------------------------------
-  # EMPLOYEES TABLE — Global Table (multi-region)
-  # Motivo: o template original declarava AWS::DynamoDB::Table + AWS::DynamoDB::GlobalTable
-  # com o MESMO TableName, causando conflito. Unificado em GlobalTable.
-  # ---------------------------------------------------------------------------
+  
+  # Employees table — keyed by id, GSI on email
+  # Replicated across us-east-1 and eu-west-1
   EmployeesGlobalTable:
     Type: AWS::DynamoDB::GlobalTable
     DeletionPolicy: Delete
@@ -146,6 +146,7 @@ Resources:
         - AttributeName: id
           KeyType: HASH
 
+      # Allows lookups by email without a full table scan
       GlobalSecondaryIndexes:
         - IndexName: email-index
           KeySchema:
@@ -154,7 +155,7 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-      # OBRIGATÓRIO para GlobalTable
+      # Required for GlobalTable — streams changes to all replicas
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 
@@ -188,18 +189,16 @@ Resources:
         SSEEnabled: true
 
       TimeToLiveSpecification:
-        # Usando o parâmetro TTLAttributeName para consistência
         AttributeName: !Ref TTLAttributeName
         Enabled: true
 
-  # ---------------------------------------------------------------------------
-  # CLOCK TABLE — Global Table (multi-region)
-  # Motivo: mesmo problema do Employees — dois recursos com o mesmo TableName.
-  # Unificado em GlobalTable. StreamSpecification adicionado (obrigatório).
-  # ---------------------------------------------------------------------------
+  
+  # Clock table — keyed by employeeId + timestampUtc
+  # DeletionPolicy: Delete — clock records are audit data
+  # Replicated across us-east-1 and eu-west-1
   ClockGlobalTable:
     Type: AWS::DynamoDB::GlobalTable
-    DeletionPolicy: Retain
+    DeletionPolicy: Delete
     UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub "${ProjectName}-${Environment}-clock"
@@ -211,13 +210,14 @@ Resources:
         - AttributeName: timestampUtc
           AttributeType: S
 
+      # Composite key — enables range queries by employee and time
       KeySchema:
         - AttributeName: employeeId
           KeyType: HASH
         - AttributeName: timestampUtc
           KeyType: RANGE
 
-      # OBRIGATÓRIO para GlobalTable
+      # Required for GlobalTable — streams changes to all replicas
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 
@@ -258,49 +258,49 @@ Resources:
 
 Outputs:
   PointsTableName:
-    Description: "Nome da tabela Points"
+    Description: "Points table name"
     Value: !Ref PointsGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PointsTableName"
 
   PointsTableArn:
-    Description: "ARN da tabela Points"
+    Description: "Points table ARN"
     Value: !GetAtt PointsGlobalTable.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PointsTableArn"
 
   PointsTableStreamArn:
-    Description: "ARN do Stream da tabela Points"
+    Description: "Points table stream ARN"
     Value: !GetAtt PointsGlobalTable.StreamArn
 
   EmployeesTableName:
-    Description: "Nome da tabela Employees"
+    Description: "Employees table name"
     Value: !Ref EmployeesGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-EmployeesTableName"
 
   EmployeesTableArn:
-    Description: "ARN da tabela Employees"
+    Description: "Employees table ARN"
     Value: !GetAtt EmployeesGlobalTable.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-EmployeesTableArn"
 
   EmployeesTableStreamArn:
-    Description: "ARN do Stream da tabela Employees"
+    Description: "Employees table stream ARN"
     Value: !GetAtt EmployeesGlobalTable.StreamArn
 
   ClockTableName:
-    Description: "Nome da tabela Clock"
+    Description: "Clock table name"
     Value: !Ref ClockGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-ClockTableName"
 
   ClockTableArn:
-    Description: "ARN da tabela Clock"
+    Description: "Clock table ARN"
     Value: !GetAtt ClockGlobalTable.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-ClockTableArn"
 
   ClockTableStreamArn:
-    Description: "ARN do Stream da tabela Clock"
+    Description: "Clock table stream ARN"
     Value: !GetAtt ClockGlobalTable.StreamArn

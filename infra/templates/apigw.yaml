@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: HTTP API (v2) with VPC Link integration to internal ALB + Custom Domain
+Description: HTTP API v2 with VPC Link integration to internal ALB + Custom Domain
 
 Parameters:
   ProjectName:
@@ -52,7 +52,7 @@ Resources:
         AllowHeaders:
           - content-type
           - authorization
-
+# JWT Authorizer for protected API Gateway routes, authentication handled by Cognito, federated via Okta as the external IdP
   CognitoJwtAuthorizer:
      Type: AWS::ApiGatewayV2::Authorizer
      Properties:
@@ -65,7 +65,7 @@ Resources:
          Audience:
            - !Ref CognitoAppClientId
          Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
-  
+# Routes API Gateway requests to the internal ALB via VPC Link  
   AlbVpcLinkIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
@@ -76,7 +76,8 @@ Resources:
       ConnectionId: !Ref VpcLinkId
       PayloadFormatVersion: "1.0"
       IntegrationUri: !Ref AlbHttpListenerArn
-
+# Protected routes JWT required: GET|POST /employees, GET|POST /clock, GET /clock/{employee_id}
+# Public route: GET /health without auth
   EmployeesGetRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -129,14 +130,14 @@ Resources:
       RouteKey: "GET /health"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
 
-
+# Default stage with auto-deploy enabled 
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref HttpApi
       StageName: "$default"
       AutoDeploy: true
-
+# Custom domain for the API with a regional ACM certificate
   ApiCustomDomain:
     Type: AWS::ApiGatewayV2::DomainName
     Properties:
@@ -145,7 +146,7 @@ Resources:
         - CertificateArn: !Ref CertificateArn
           EndpointType: REGIONAL
           SecurityPolicy: TLS_1_2
-
+# Binds the API to the custom domain, mapping the default stage to the root path
   ApiDomainMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
     DependsOn:
@@ -156,7 +157,7 @@ Resources:
       DomainName: !Ref ApiCustomDomainName
       Stage: !Ref ApiStage
       ApiMappingKey: ""
-
+# Route53 alias record pointing the custom API domain to the regional API Gateway endpoint
   ApiCustomDomainRecord:
     Type: AWS::Route53::RecordSet
     DependsOn:
@@ -164,13 +165,10 @@ Resources:
       - ApiDomainMapping
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      #HostedZoneName: !Ref HostedZoneName
       Name: !Sub "${ApiCustomDomainName}."
       Type: A
       AliasTarget:
-        #DNSName: !Select [0, !GetAtt ApiCustomDomain.RegionalDomainName]
         DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
-        #HostedZoneId: !Select [0, !GetAtt ApiCustomDomain.RegionalHostedZoneId]
         HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
 
 Outputs:
@@ -192,5 +190,4 @@ Outputs:
 
   RegionalApiGatewayDomainName:
     Description: Regional API Gateway target domain
-    #Value: !Select [0, !GetAtt ApiCustomDomain.RegionalDomainName]
     Value: !GetAtt ApiCustomDomain.RegionalDomainName
