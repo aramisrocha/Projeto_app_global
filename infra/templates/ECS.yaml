@@ -105,6 +105,12 @@ Parameters:
     AllowedValues:
       - ECS
       - CODE_DEPLOY
+  Environment:
+    Type: String
+  EcsTaskRoleName:
+    Type: String
+  EcsTaskExecutionRoleName:
+    Type: String      
 
 Resources:
 
@@ -382,3 +388,5 @@ Outputs:
 
   AutoScalingRoleArn:
     Value: !GetAtt EcsAutoScalingRole.Arn
+  
+ 
