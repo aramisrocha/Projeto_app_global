@@ -105,12 +105,18 @@ Parameters:
     AllowedValues:
       - ECS
       - CODE_DEPLOY
-  Environment:
+  EcsTaskRoleArn:
     Type: String
-  EcsTaskRoleName:
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
+
+  EcsExecutionRoleArn:
     Type: String
-  EcsTaskExecutionRoleName:
-    Type: String      
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-exec-role"
+    
+
+  EcsAutoScalingRoleArn:
+    Type: String
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-autoscaling-role"    
 
 Resources:
 
@@ -122,68 +128,13 @@ Resources:
       RetentionInDays: !Ref LogRetentionDays
 
   # Execution role — grants ECS agent permission to pull images and write logs
-  EcsTaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${ProjectName}-ecs-exec-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-  # Task role — grants application code permission to access DynamoDB tables
-  EcsTaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${ProjectName}-ecs-task-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub "${ProjectName}-ecs-task-inline"
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:GetItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:Query
-                  - dynamodb:Scan
-                Resource:
-                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/app-global-prd-clock"
-                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/app-global-prd-employees"
-                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/app-global-prd-points"
-
-  # Auto Scaling role — allows Application Auto Scaling 
-  EcsAutoScalingRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${ProjectName}-ecs-autoscaling-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: application-autoscaling.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+  
 
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${ProjectName}-cluster"
+  
 
   # SG for ECS
   ServiceSecurityGroup:
@@ -265,8 +216,8 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ExecutionRoleArn: !Ref EcsExecutionRoleArn
+      TaskRoleArn: !Ref EcsTaskRoleArn
       ContainerDefinitions:
         - Name: !Sub "${ProjectName}-container"
           Image: !Ref ImageUri
@@ -335,7 +286,8 @@ Resources:
       MinCapacity: !Ref MinTaskCount
       MaxCapacity: !Ref MaxTaskCount
       ResourceId: !Sub "service/${EcsCluster}/${EcsService.Name}"
-      RoleARN: !GetAtt EcsAutoScalingRole.Arn
+      #RoleARN: !GetAtt EcsAutoScalingRole.Arn
+      RoleARN: !Ref EcsAutoScalingRoleArn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
 
@@ -380,13 +332,12 @@ Outputs:
   ServiceSecurityGroupId:
     Value: !Ref ServiceSecurityGroup
 
+
   TaskExecutionRoleArn:
-    Value: !GetAtt EcsTaskExecutionRole.Arn
+    Value: !Ref EcsExecutionRoleArn
 
   TaskRoleArn:
-    Value: !GetAtt EcsTaskRole.Arn
+    Value: !Ref EcsTaskRoleArn
 
   AutoScalingRoleArn:
-    Value: !GetAtt EcsAutoScalingRole.Arn
-  
- 
+    Value: !Ref EcsAutoScalingRoleArn
