@@ -130,7 +130,7 @@ Resources:
       Parameters:
         ProjectName: "app-global"
         DeploymentControllerType: "CODE_DEPLOY"
-        Environment: "dr"
+        #Environment: "prd"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
         #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
