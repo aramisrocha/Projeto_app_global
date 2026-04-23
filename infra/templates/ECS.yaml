@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, IAM Roles, Logs"
+Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, Auscaling Logs"
 
 Parameters:
   ProjectName:
