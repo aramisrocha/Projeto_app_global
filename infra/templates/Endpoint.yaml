@@ -136,7 +136,21 @@ Resources:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
       SecurityGroupIds:
-        - !Ref EndpointSecurityGroup       
+        - !Ref EndpointSecurityGroup  
+  # ----------------------------------------
+  # DynamoDB Gateway Endpoint
+  # ----------------------------------------
+  DynamoDBGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+
+      RouteTableIds:
+        - !Ref PrivateRouteTable           
 
 Outputs:
   EndpointSecurityGroupId:
@@ -158,3 +172,7 @@ Outputs:
   CloudWatchLogsEndpointId:
     Description: ID do VPC Endpoint CloudWatch Logs
     Value: !Ref CloudWatchLogsEndpoint
+
+  DynamoDBGatewayEndpointId:
+    Description: ID do VPC Endpoint DynamoDB Gateway
+    Value: !Ref DynamoDBGatewayEndpoint  

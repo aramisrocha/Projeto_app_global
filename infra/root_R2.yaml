@@ -201,4 +201,4 @@ Resources:
         #BucketName:  !Sub "aramis-app-global-${Environment}"
         #BucketName: !Sub "aramis-app-global-${FrontendEnvironment}" 
         BucketName: !Sub "aramis-app-global-regiao02-${Environment}"       
-   
+
