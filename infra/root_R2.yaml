@@ -153,8 +153,8 @@ Resources:
         #RoleName: !Sub "${ProjectName}-ecs-task-role"
         #EcsTaskRoleName: "app-global-prodr2-ecs-task-role"
         #EcsTaskExecutionRoleName: "app-global-prodr2-ecs-exec-role"
-        EcsTaskRoleArn: "arn:aws:iam::181317788381:role/app-global-prodr2-ecs-task-role"
-        EcsExecutionRoleArn: "arn:aws:iam::181317788381:role/app-global-prodr2-ecs-exec-role"
+        EcsTaskRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
+        EcsExecutionRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-exec-role"
   
   VpcLinkStack:
     Type: AWS::CloudFormation::Stack
