@@ -119,6 +119,17 @@ Resources:
       SecurityGroupIds:
         - !Ref EndpointSecurityGroup
 
+  DynamoDBGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+
+      RouteTableIds:
+        - !Ref PrivateRouteTable
 Outputs:
   EndpointSecurityGroupId:
     Description: "Endpoint security group ID"
@@ -139,3 +150,7 @@ Outputs:
   CloudWatchLogsEndpointId:
     Description: "CloudWatch Logs VPC Endpoint ID"
     Value: !Ref CloudWatchLogsEndpoint
+    
+  DynamoDBGatewayEndpointId:
+    Description: ID do VPC Endpoint DynamoDB Gateway
+    Value: !Ref DynamoDBGatewayEndpoint  
