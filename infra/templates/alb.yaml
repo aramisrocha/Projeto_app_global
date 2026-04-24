@@ -83,6 +83,19 @@ Resources:
           StatusCode: "404"
           ContentType: "text/plain"
           MessageBody: "No rule matched"
+  # Test listener on port 8080 
+  AlbHttpListenerTeste:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 8080
+      Protocol: HTTP
+      DefaultActions:
+      - Type: fixed-response
+        FixedResponseConfig:
+          StatusCode: "404"
+          ContentType: "text/plain"
+          MessageBody: "No rule matched"        
 
 Outputs:
   AlbSecurityGroupId:
