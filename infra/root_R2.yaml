@@ -10,7 +10,6 @@ Parameters:
   Environment:
     Type: String
     Default: "prod"
-    #AllowedValues: ["PROD", "PRODR2"]
     AllowedValues: ["dev", "hml", "prod", "dr"]
     Description: "Variaveis para definir "
   
@@ -18,6 +17,7 @@ Parameters:
     Type: String
     Default: "prod"
 
+  # Cognito User Pool and App Client IDs used for API Gateway JWT authorizer
   CognitoUserPoolId:
     Type: String
     Default: eu-west-1_mPYvyTZ3z
@@ -26,7 +26,7 @@ Parameters:
     Type: String
     Default: 3pir0n7u4bmk3hnhaao24rvbee  
 
-  # 
+  # S3 bucket and prefix where all nested CloudFormation templates are stored
   TemplateBucket:
     Type: String
     Description: "S3 bucket that stores CloudFormation templates"
@@ -36,18 +36,10 @@ Parameters:
     Default: "artifacts/cloudformation"
     Description: "S3 prefix/folder where templates are stored"
 
-  # Parâmetros repassados ao módulo de rede
+  # VPC and subnet CIDR blocks passed to the network stack
   VpcCidr:
     Type: String
     Default: "10.0.0.0/16"
-
-  # PrivateSubnet1Cidr:
-  #   Type: String
-  #   Default: "10.0.1.0/24"
-
-  # PublicSubnet2Cidr:
-  #   Type: String
-  #   Default: "10.0.2.0/24"
 
   PrivateSubnet1Cidr:
     Type: String
@@ -57,6 +49,7 @@ Parameters:
     Type: String
     Default: "10.0.2.0/24"
 
+  # Both must be true for VPC Endpoints and private hosted zones to work correctly
   EnableDnsHostnames:
     Type: String
     Default: "true"
@@ -67,33 +60,33 @@ Parameters:
     Default: "true"
     AllowedValues: ["true", "false"]
   
+  # Custom domain name for the CloudFront distribution
   DomainName:
     Type: String
     Default: www.aramislabs.click
     
+  # S3 static website endpoint used as the CloudFront origin for the frontend
   S3WebsiteEndpoint:
     Type: String
     Default: aramis-app-global-regiao02-prod.s3-website-eu-west-1.amazonaws.com
     
 Resources:
+
+  # Creates VPC, private subnets and route tables, all other stacks depend on its outputs
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      # O arquivo precisa estar no S3 nesse camin
-      # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
-      #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
       TemplateURL: templates/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcCidr: !Ref VpcCidr
-        #PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
         PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
-        #PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
         EnableDnsHostnames: !Ref EnableDnsHostnames
         EnableDnsSupport: !Ref EnableDnsSupport 
   
+  # Interface and Gateway Endpoints so Fargate tasks reach AWS services without internet access
   EndpointsStack:
    Type: AWS::CloudFormation::Stack
    DeletionPolicy: Delete
@@ -108,7 +101,7 @@ Resources:
       PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2Id
       PrivateRouteTable: !GetAtt NetworkStack.Outputs.PrivateRouteTableId          
   
-  # Subindo aplication load balance
+  # Internal ALB in private subnets — sits between API Gateway VPC Link and ECS tasks
   AlbStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -117,10 +110,9 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        #PublicSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
         PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds         
 
-# ECS
+  # ECS Fargate service in private subnets with CodeDeploy Blue/Green deployment
   EcsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -130,32 +122,26 @@ Resources:
       Parameters:
         ProjectName: "app-global"
         DeploymentControllerType: "CODE_DEPLOY"
-        #Environment: "prd"
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        #PrivateSubnetIds: !Split [",", !GetAtt NetworkStack.Outputs.PublicSubnetIds]
-        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds 
         PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
-        #PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
         AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
         AlbListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ListenerRulePriority: 10
         PathPattern: "/*"
         ContainerPort: 8000
+        # Two tasks for high availability across both private subnets
         DesiredCount: 2
         AssignPublicIp: "ENABLED"
-        #ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-29"
         ImageUri: "181317788381.dkr.ecr.eu-west-1.amazonaws.com/app_global:build-62"
         HealthCheckPath: "/health"
-        #EnvironmentEmployeesTable: "Employees"
+        # DynamoDB table names injected as environment variables into the container
         EnvironmentEmployeesTable: "app-global-prd-employees"
-        #EnvironmentClockTable: "ClockRecords"
         EnvironmentClockTable: "app-global-prd-clock"
-        #RoleName: !Sub "${ProjectName}-ecs-task-role"
-        #EcsTaskRoleName: "app-global-prodr2-ecs-task-role"
-        #EcsTaskExecutionRoleName: "app-global-prodr2-ecs-exec-role"
+        # Task role for app permissions; execution role for ECS control plane operations
         EcsTaskRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
         EcsExecutionRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-exec-role"
   
+  # VPC Link bridges public API Gateway to the internal ALB inside the private VPC
   VpcLinkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -166,6 +152,7 @@ Resources:
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds              
 
+  # REST API with Cognito JWT authorizer routing through VPC Link → ALB → ECS
   ApiGatewayStack:
       Type: AWS::CloudFormation::Stack
       DependsOn:
@@ -177,18 +164,15 @@ Resources:
           ProjectName: !Ref ProjectName
           Environment: !Ref Environment
           VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
-          #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
           AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
           ApiCustomDomainName: apiglobalr2.aramislabs.click
-          #CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
-          #CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/5c8b8f1d-5195-4ca3-aef2-7b236d8382dc
+          # ACM certificate must be in the same region as the API Gateway
           CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/35f6f731-a966-42f8-bffa-c729bf115efc
+          # Validates JWT tokens issued by the Okta-federated Cognito User Pool
           CognitoUserPoolId: !Ref CognitoUserPoolId
           CognitoAppClientId: !Ref CognitoAppClientId
-          #HostedZoneName: aramislabs.click.
-          #HostedZoneId: Z00421932FD8154X80J2A
 
-# Frontend
+  # S3 bucket hosting static frontend assets, used as the CloudFront origin
   FrontendStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -198,7 +182,5 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
-        #BucketName:  !Sub "aramis-app-global-${Environment}"
-        #BucketName: !Sub "aramis-app-global-${FrontendEnvironment}" 
-        BucketName: !Sub "aramis-app-global-regiao02-${Environment}"       
-
+        # Environment suffix enables independent deployments per stage
+        BucketName: !Sub "aramis-app-global-regiao02-${Environment}"
