@@ -1,0 +1,16 @@
+{
+  "family": "app-global-task",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "IMAGE_URI",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  ]
+}
