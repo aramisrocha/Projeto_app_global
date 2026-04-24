@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, IAM Roles, Logs"
+Description: "ECS Fargate module - Cluster, TaskDefinition, Service, TG + ListenerRule, Auscaling Logs"
 
 Parameters:
   ProjectName:
@@ -11,7 +11,7 @@ Parameters:
 
   PrivateSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: "Subnets privadas para rodar o ECS Service (Fargate)"
+    Description: "Private subnets for ECS Fargate tasks"
 
   ServiceSecurityGroupEgressCidr:
     Type: String
@@ -19,21 +19,21 @@ Parameters:
 
   AlbSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
-    Description: "Security Group do ALB (criado no network.yaml)"
+    Description: "ALB Security Group — used to allow inbound traffic from ALB to ECS tasks"
 
   AlbListenerArn:
     Type: String
-    Description: "Listener ARN do ALB (ex: HTTP 80) - criado no network.yaml"
+    Description: "ALB Listener ARN (HTTP 80) — defined in network.yaml"
 
   ListenerRulePriority:
     Type: Number
     Default: 10
-    Description: "Prioridade da regra no listener (deve ser única)"
+    Description: "Listener rule priority — must be unique across all rules on the same listener"
 
   PathPattern:
     Type: String
     Default: "/*"
-    Description: "Path pattern do listener rule"
+    Description: "Path pattern for the ALB listener rule"
 
   ContainerPort:
     Type: Number
@@ -42,6 +42,26 @@ Parameters:
   DesiredCount:
     Type: Number
     Default: 2
+
+  MinTaskCount:
+    Type: Number
+    Default: 1
+    Description: "Minimum number of tasks for Auto Scaling"
+
+  MaxTaskCount:
+    Type: Number
+    Default: 10
+    Description: "Maximum number of tasks for Auto Scaling"
+
+  CPUTargetValue:
+    Type: Number
+    Default: 70
+    Description: "Target average CPU utilization (%) for Target Tracking scaling"
+
+  MemoryTargetValue:
+    Type: Number
+    Default: 75
+    Description: "Target average memory utilization (%) for Target Tracking scaling"
 
   Cpu:
     Type: String
@@ -61,7 +81,7 @@ Parameters:
   ImageUri:
     Type: String
     Default: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
-    Description: "Imagem completa (repo:tag). Ex: 1813...amazonaws.com/app_global:latest"
+    Description: "Full image URI (repo:tag)"
 
   LogRetentionDays:
     Type: Number
@@ -79,72 +99,48 @@ Parameters:
     Type: String
     Default: "ClockRecords"
 
+  DeploymentControllerType:
+    Type: String
+    Default: ECS
+    AllowedValues:
+      - ECS
+      - CODE_DEPLOY
+  EcsTaskRoleArn:
+    Type: String
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
+
+  EcsExecutionRoleArn:
+    Type: String
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-exec-role"
+    
+
+  EcsAutoScalingRoleArn:
+    Type: String
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-autoscaling-role"    
+
 Resources:
-  # =========================
-  # Log Group
-  # =========================
+
+  # CloudWatch Log Group for ECS task 
   AppLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/ecs/${ProjectName}"
       RetentionInDays: !Ref LogRetentionDays
 
-  # =========================
-  # IAM Roles
-  # =========================
-  EcsTaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${ProjectName}-ecs-exec-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  # Execution role — grants ECS agent permission to pull images and write logs
+  
 
-  EcsTaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${ProjectName}-ecs-task-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: !Sub "${ProjectName}-ecs-task-inline"
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              # (Opcional) Exemplo básico - ajuste depois conforme seu app:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:GetItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:Query
-                  - dynamodb:Scan
-                Resource: "*"
-
-  # =========================
-  # ECS Cluster
-  # =========================
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${ProjectName}-cluster"
+  
 
-  # =========================
-  # Security Group do Service
-  # =========================
+  # SG for ECS
   ServiceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       GroupDescription: !Sub "SG for ${ProjectName} ECS Service"
       VpcId: !Ref VpcId
@@ -162,11 +158,11 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-ecs-svc-sg"
 
-  # =========================
-  # Target Group (IP) + Listener Rule
-  # =========================
-  AppTargetGroup:
+  # Blue target group — active production target, receives live traffic from the ALB listener rule
+  AppTargetGroupBlue:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       Name: !Sub "${ProjectName}-blue-tg"
       VpcId: !Ref VpcId
@@ -177,9 +173,12 @@ Resources:
       HealthCheckPath: !Ref HealthCheckPath
       Matcher:
         HttpCode: "200-399"
-  
+
+  # Green target group — reserved for blue/green deployments via CodeDeploy
   AppTargetGroupGreen:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       Name: !Sub "${ProjectName}-green-tg"
       VpcId: !Ref VpcId
@@ -190,8 +189,8 @@ Resources:
       HealthCheckPath: !Ref HealthCheckPath
       Matcher:
         HttpCode: "200-399"
-       
 
+  # Routes matched requests to the blue target group
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -203,13 +202,13 @@ Resources:
             - !Ref PathPattern
       Actions:
         - Type: forward
-          TargetGroupArn: !Ref AppTargetGroup
+          TargetGroupArn: !Ref AppTargetGroupBlue
 
-  # =========================
-  # Task Definition
-  # =========================
+  # Defines CPU, memory, container image and IAM roles — awsvpc mode assigns a dedicated ENI per task
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       Family: !Sub "${ProjectName}-task"
       Cpu: !Ref Cpu
@@ -217,8 +216,8 @@ Resources:
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ExecutionRoleArn: !Ref EcsExecutionRoleArn
+      TaskRoleArn: !Ref EcsTaskRoleArn
       ContainerDefinitions:
         - Name: !Sub "${ProjectName}-container"
           Image: !Ref ImageUri
@@ -226,6 +225,7 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
+          # Container-level health check
           HealthCheck:
             Command:
               - CMD-SHELL
@@ -233,13 +233,11 @@ Resources:
             Interval: 30
             Timeout: 5
             Retries: 3
-            StartPeriod: 10    
+            StartPeriod: 10
           Environment:
             - Name: EMPLOYEES_TABLE
-              #Value: !Ref EnvironmentEmployeesTable
               Value: "EMPLOYEES_TABLE"
             - Name: CLOCK_TABLE
-              #Value: !Ref EnvironmentClockTable
               Value: "CLOCK_TABLE"
           LogConfiguration:
             LogDriver: awslogs
@@ -248,11 +246,12 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
 
-  # =========================
-  # ECS Service
-  # =========================
+  # DependsOn ListenerRule ensures the ALB is ready before the service registers targets
+  # DeploymentConfiguration allows rolling updates with no full outage
   EcsService:
     Type: AWS::ECS::Service
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     DependsOn:
       - ListenerRule
     Properties:
@@ -260,6 +259,8 @@ Resources:
       Cluster: !Ref EcsCluster
       DesiredCount: !Ref DesiredCount
       LaunchType: FARGATE
+      DeploymentController:
+        Type: !Ref DeploymentControllerType
       TaskDefinition: !Ref TaskDefinition
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -270,10 +271,53 @@ Resources:
       LoadBalancers:
         - ContainerName: !Sub "${ProjectName}-container"
           ContainerPort: !Ref ContainerPort
-          TargetGroupArn: !Ref AppTargetGroup
+          TargetGroupArn: !Ref AppTargetGroupBlue
+      # MaximumPercent 200 allows doubling tasks during deployment before draining old ones
+      # MinimumHealthyPercent 50 ensures at least half the tasks remain healthy during rollout
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 50
+
+  # Registers the ECS service as a scalable target for Application Auto Scaling
+  ServiceScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: EcsService
+    Properties:
+      MinCapacity: !Ref MinTaskCount
+      MaxCapacity: !Ref MaxTaskCount
+      ResourceId: !Sub "service/${EcsCluster}/${EcsService.Name}"
+      #RoleARN: !GetAtt EcsAutoScalingRole.Arn
+      RoleARN: !Ref EcsAutoScalingRoleArn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  # Scales out after 1 min of high CPU, scales in after 2 min to avoid flapping
+  ScalingPolicyCPU:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${ProjectName}-cpu-scaling"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref CPUTargetValue
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+
+  # Scales out after 1 min of high memory, scales in after 2 min to avoid flapping
+  ScalingPolicyMemory:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${ProjectName}-memory-scaling"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref MemoryTargetValue
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
 
 Outputs:
   ClusterName:
@@ -283,13 +327,17 @@ Outputs:
     Value: !Ref EcsService
 
   TargetGroupArn:
-    Value: !Ref AppTargetGroup
+    Value: !Ref AppTargetGroupBlue
 
   ServiceSecurityGroupId:
     Value: !Ref ServiceSecurityGroup
 
+
   TaskExecutionRoleArn:
-    Value: !GetAtt EcsTaskExecutionRole.Arn
+    Value: !Ref EcsExecutionRoleArn
 
   TaskRoleArn:
-    Value: !GetAtt EcsTaskRole.Arn
+    Value: !Ref EcsTaskRoleArn
+
+  AutoScalingRoleArn:
+    Value: !Ref EcsAutoScalingRoleArn

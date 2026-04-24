@@ -4,19 +4,13 @@
   "containerDefinitions": [
     {
       "name": "app",
-      "image": "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest",
+      "image": "IMAGE_URI",
       "portMappings": [
         {
           "containerPort": 8000,
           "protocol": "tcp"
         }
-      ],
-      "essential": true
+      ]
     }
-  ],
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
-  "executionRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-exec-role",
-  "taskRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
+  ]
 }

@@ -1,4 +1,3 @@
-# CloudFormation Template a
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Root stack - creates Network layer using nested stack (templates/network.yaml)"
 
@@ -46,6 +45,10 @@ Parameters:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
+  
+  DomainName:
+    Type: String
+    Default: www.aramislabs.click
 
 Resources:
   NetworkStack:
@@ -147,6 +150,15 @@ Resources:
          Environment: !Ref Environment
          BucketName:  !Sub "aramis-app-global-${Environment}"
          #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
+
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: FrontendStack
+    Properties:
+       TemplateURL: templates/cloudfront_waf.yaml
+       Parameters:
+         BucketName: !GetAtt FrontendStack.Outputs.BucketName
+         DomainName: !Ref DomainName
 
 Outputs:
   VpcId:

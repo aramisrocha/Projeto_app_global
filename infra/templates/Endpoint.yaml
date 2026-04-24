@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VPC Endpoints for ecr, CloudWatch Logs)
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateRouteTable:
+    Type: String
+
+Resources:
+
+  # ----------------------------------------
+  # Security Group para os 
+  # ----------------------------------------
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      GroupDescription: !Sub "${ProjectName}-${Environment}-endpoint-sg"
+      VpcId: !Ref VPC
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-endpoint-sg"
+
+  # ----------------------------------------
+  # ECR API Endpoint
+  # ----------------------------------------
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  # ----------------------------------------
+  # ECR DKR Endpoint
+  # ----------------------------------------
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+  # ----------------------------------------
+  # S3 Gateway Endpoint
+  # ----------------------------------------
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+  # ----------------------------------------
+  # CloudWatch Logs Endpoint
+  # ----------------------------------------
+  CloudWatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      PrivateDnsEnabled: true
+
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+
+ # STS for Boto3 framework .
+  StsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sts"
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup  
+  # ----------------------------------------
+  # DynamoDB Gateway Endpoint
+  # ----------------------------------------
+  DynamoDBGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+
+      RouteTableIds:
+        - !Ref PrivateRouteTable           
+
+Outputs:
+  EndpointSecurityGroupId:
+    Description: Security Group dos endpoints
+    Value: !Ref EndpointSecurityGroup
+
+  EcrApiEndpointId:
+    Description: ID do VPC Endpoint ECR API
+    Value: !Ref EcrApiEndpoint
+
+  EcrDkrEndpointId:
+    Description: ID do VPC Endpoint ECR DKR
+    Value: !Ref EcrDkrEndpoint
+
+  S3GatewayEndpointId:
+    Description: ID do VPC Endpoint S3 Gateway
+    Value: !Ref S3GatewayEndpoint
+
+  CloudWatchLogsEndpointId:
+    Description: ID do VPC Endpoint CloudWatch Logs
+    Value: !Ref CloudWatchLogsEndpoint
+
+  DynamoDBGatewayEndpointId:
+    Description: ID do VPC Endpoint DynamoDB Gateway
+    Value: !Ref DynamoDBGatewayEndpoint  

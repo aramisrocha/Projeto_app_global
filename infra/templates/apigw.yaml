@@ -22,9 +22,14 @@ Parameters:
     Type: String
     Default: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
 
-  #HostedZoneName:
-   # Type: String
-   # Default: aramislabs.click.
+  CognitoUserPoolId:
+    Type: String
+    #Default: us-east-1_GCFSRJXoU
+
+  CognitoAppClientId:
+    Type: String
+    #Default: 1oeaodsmtgvqthl36301eh612a
+
 
   HostedZoneId:
     Type: String
@@ -39,13 +44,28 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
           - "*"
+          - https://www.aramislabs.click
         AllowMethods:
           - GET
           - POST
           - OPTIONS
         AllowHeaders:
           - content-type
+          - authorization
 
+  CognitoJwtAuthorizer:
+     Type: AWS::ApiGatewayV2::Authorizer
+     Properties:
+       ApiId: !Ref HttpApi
+       AuthorizerType: JWT
+       IdentitySource:
+         - $request.header.Authorization
+       Name: Auth_cognito
+       JwtConfiguration:
+         Audience:
+           - !Ref CognitoAppClientId
+         Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}
+  
   AlbVpcLinkIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
@@ -63,6 +83,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /employees"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   EmployeesPostRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -70,6 +92,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "POST /employees"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ClockGetRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -77,6 +101,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /clock"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ClockPostRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -84,6 +110,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "POST /clock"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ClockEmployeeIdGetRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -91,6 +119,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /clock/{employee_id}"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   HealthGetRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -98,6 +128,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /health"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      AuthorizationType: JWT 
+      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage

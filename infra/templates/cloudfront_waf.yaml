@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront + S3 Website + WAF
+
+Parameters:
+  BucketName:
+    Type: String  
+  DomainName:
+    Type: String
+    Default: www.aramislabs.click
+
+  S3WebsiteEndpoint:
+    Type: String
+    Default: aramis-app-global-dev.s3-website-us-east-1.amazonaws.com
+    #DomainName: !GetAtt S3Bucket.WebsiteURL
+    
+
+Resources:
+
+# -----------------------------
+# WAF Web ACL
+# -----------------------------
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: app-global-waf
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: app-global-waf
+      Rules:
+
+        - Name: AWSManagedIPReputation
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              Name: AWSManagedRulesAmazonIpReputationList
+              VendorName: AWS
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: ip-reputation
+
+        - Name: AWSManagedCommonRules
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              Name: AWSManagedRulesCommonRuleSet
+              VendorName: AWS
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: common-rules
+
+        - Name: AWSManagedKnownBadInputs
+          Priority: 3
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+              VendorName: AWS
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: bad-inputs
+
+# -----------------------------
+# CloudFront Distribution
+# -----------------------------
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: App Global CDN
+
+        Aliases:
+          - !Ref DomainName
+
+        DefaultRootObject: index.html
+
+        Origins:
+          - Id: S3Origin
+            DomainName: !Ref S3WebsiteEndpoint
+            #DomainName: !Sub "${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
+            #DomainName: !Sub "${BucketName}.s3-website-${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+
+        PriceClass: PriceClass_All
+
+        ViewerCertificate:
+          AcmCertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+        WebACLId: !GetAtt WebACL.Arn
+
+Outputs:
+  CloudFrontURL:
+    Description: CloudFront Domain Name
+    Value: !GetAtt CloudFrontDistribution.DomainName
