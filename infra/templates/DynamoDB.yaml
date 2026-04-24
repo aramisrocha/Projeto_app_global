@@ -16,16 +16,16 @@ Parameters:
     Default: ""
     Description: "Optional custom table name — defaults to {ProjectName}-{Environment}-points if left empty"
 
-  EnableTTL:
-    Type: String
-    AllowedValues: ["true", "false"]
-    Default: "true"
-    Description: "Enable TTL for automatic item expiration"
+  # EnableTTL:
+  #   Type: String
+  #   AllowedValues: ["true", "false"]
+  #   Default: "true"
+  #   Description: "Enable TTL for automatic item expiration"
 
-  TTLAttributeName:
-    Type: String
-    Default: "ttl"
-    Description: "Attribute name used for TTL expiration"
+  # TTLAttributeName:
+  #   Type: String
+  #   Default: "ttl"
+  #   Description: "Attribute name used for TTL expiration"
 
   EnablePITR:
     Type: String
@@ -36,15 +36,14 @@ Parameters:
 Conditions:
   # Resolves whether a custom table name was provided
   HasCustomTableName: !Not [!Equals [!Ref TableName, ""]]
-  TTLIsEnabled: !Equals [!Ref EnableTTL, "true"]
+  #TTLIsEnabled: !Equals [!Ref EnableTTL, "true"]
   PITRIsEnabled: !Equals [!Ref EnablePITR, "true"]
 
 Resources:
 
-  # -------------------------------------------------------
-  # Points table — single-table design with GSI
+  
+  # Points table, single-table design with GSI
   # Replicated across us-east-1 and eu-west-1
-  # -------------------------------------------------------
   PointsGlobalTable:
     Type: AWS::DynamoDB::GlobalTable
     DeletionPolicy: Delete
@@ -119,11 +118,11 @@ Resources:
         SSEEnabled: true
 
       # TTL conditionally enabled — expired items are automatically deleted
-      TimeToLiveSpecification: !If
-        - TTLIsEnabled
-        - AttributeName: !Ref TTLAttributeName
-          Enabled: true
-        - !Ref "AWS::NoValue"
+      # TimeToLiveSpecification: !If
+      #   - TTLIsEnabled
+      #   - AttributeName: !Ref TTLAttributeName
+      #     Enabled: true
+      #   - !Ref "AWS::NoValue"
 
   
   # Employees table — keyed by id, GSI on email
@@ -188,9 +187,9 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
-      TimeToLiveSpecification:
-        AttributeName: !Ref TTLAttributeName
-        Enabled: true
+      # TimeToLiveSpecification:
+      #   AttributeName: !Ref TTLAttributeName
+      #   Enabled: true
 
   
   # Clock table — keyed by employeeId + timestampUtc
@@ -250,11 +249,11 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
-      TimeToLiveSpecification: !If
-        - TTLIsEnabled
-        - AttributeName: !Ref TTLAttributeName
-          Enabled: true
-        - !Ref "AWS::NoValue"
+      # TimeToLiveSpecification: !If
+      #   - TTLIsEnabled
+      #   - AttributeName: !Ref TTLAttributeName
+      #     Enabled: true
+      #   - !Ref "AWS::NoValue"
 
 Outputs:
   PointsTableName:
