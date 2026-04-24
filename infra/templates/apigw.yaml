@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HTTP API (v2) with VPC Link integration to internal ALB + Custom Domain
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  Environment:
+    Type: String
+
+  VpcLinkId:
+    Type: String
+
+  AlbHttpListenerArn:
+    Type: String
+
+  ApiCustomDomainName:
+    Type: String
+    Default: apiglobal.aramislabs.click
+
+  CertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
+
+  #HostedZoneName:
+   # Type: String
+   # Default: aramislabs.click.
+
+  HostedZoneId:
+    Type: String
+    Default: Z00421932FD8154X80J2A
+
+Resources:
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${ProjectName}-${Environment}-api"
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - content-type
+
+  AlbVpcLinkIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLinkId
+      PayloadFormatVersion: "1.0"
+      IntegrationUri: !Ref AlbHttpListenerArn
+
+  EmployeesGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /employees"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  EmployeesPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "POST /employees"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  ClockGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /clock"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  ClockPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "POST /clock"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  ClockEmployeeIdGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /clock/{employee_id}"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  HealthGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "GET /health"
+      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: "$default"
+      AutoDeploy: true
+
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  ApiDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn:
+      - ApiStage
+      - ApiCustomDomain
+    Properties:
+      ApiId: !Ref HttpApi
+      DomainName: !Ref ApiCustomDomainName
+      Stage: !Ref ApiStage
+      ApiMappingKey: ""
+
+  ApiCustomDomainRecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn:
+      - ApiCustomDomain
+      - ApiDomainMapping
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      #HostedZoneName: !Ref HostedZoneName
+      Name: !Sub "${ApiCustomDomainName}."
+      Type: A
+      AliasTarget:
+        #DNSName: !Select [0, !GetAtt ApiCustomDomain.RegionalDomainName]
+        DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+        #HostedZoneId: !Select [0, !GetAtt ApiCustomDomain.RegionalHostedZoneId]
+        HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+
+Outputs:
+  HttpApiId:
+    Description: HTTP API Id
+    Value: !Ref HttpApi
+
+  DefaultExecuteApiUrl:
+    Description: Default execute-api URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+
+  CustomDomainName:
+    Description: Custom domain name
+    Value: !Ref ApiCustomDomainName
+
+  CustomDomainUrl:
+    Description: Custom domain invoke URL
+    Value: !Sub "https://${ApiCustomDomainName}/"
+
+  RegionalApiGatewayDomainName:
+    Description: Regional API Gateway target domain
+    #Value: !Select [0, !GetAtt ApiCustomDomain.RegionalDomainName]
+    Value: !GetAtt ApiCustomDomain.RegionalDomainName

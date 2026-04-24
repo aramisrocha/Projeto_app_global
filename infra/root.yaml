@@ -51,7 +51,7 @@ Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      # O arquivo precisa estar no S3 nesse caminh:
+      # O arquivo precisa estar no S3 nesse camin
       # s3://<TemplateBucket>/<TemplatePrefix>/templates/network.yaml
       #TemplateURL: !Sub "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}/templates/network.yaml"
       TemplateURL: templates/network.yaml
@@ -101,11 +101,52 @@ Resources:
         ContainerPort: 8000
         DesiredCount: 2
         AssignPublicIp: "ENABLED"
-        ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:latest"
+        ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-29"
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
         EnvironmentClockTable: "ClockRecords"
 
+
+  VpcLinkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/vpc-link.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+ 
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VpcLinkStack
+      - AlbStack
+    Properties:
+      TemplateURL: templates/apigw.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        VpcLinkId: !GetAtt VpcLinkStack.Outputs.VpcLinkId
+        #AlbInternalDnsName: !GetAtt AlbStack.Outputs.AlbDnsName
+        AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
+        ApiCustomDomainName: apiglobal.aramislabs.click
+        CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
+        #HostedZoneName: aramislabs.click.
+        #HostedZoneId: Z00421932FD8154X80J2A
+
+# Frontend
+  FrontendStack:
+     Type: AWS::CloudFormation::Stack
+     DependsOn:
+       - ApiGatewayStack
+     Properties:
+       TemplateURL: templates/s3.yaml
+       Parameters:
+         ProjectName: !Ref ProjectName
+         Environment: !Ref Environment
+         BucketName:  !Sub "aramis-app-global-${Environment}"
+         #PriceClass: !FindInMap [EnvironmentConfig, !Ref Environment, PriceClass]
 
 Outputs:
   VpcId:
@@ -131,3 +172,6 @@ Outputs:
     Value: !GetAtt NetworkStack.Outputs.InternetGatewayId
     Export:
       Name: !Sub "${ProjectName}-${Environment}-InternetGatewayId"
+ 
+  FrontendURL:
+    Value: !GetAtt FrontendStack.Outputs.WebsiteURL
