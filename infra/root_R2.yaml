@@ -167,7 +167,7 @@ Resources:
           AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
           ApiCustomDomainName: apiglobalr2.aramislabs.click
           # ACM certificate must be in the same region as the API Gateway
-          CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/35f6f731-a966-42f8-bffa-c729bf115efc
+          CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/fd552695-b3e3-44c4-96a8-cc7cd918d3cb
           # Validates JWT tokens issued by the Okta-federated Cognito User Pool
           CognitoUserPoolId: !Ref CognitoUserPoolId
           CognitoAppClientId: !Ref CognitoAppClientId
