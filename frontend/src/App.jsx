@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const COGNITO_DOMAIN = "https://us-east-1gcfsrjxou.auth.us-east-1.amazoncognito.com";
-const COGNITO_CLIENT_ID = "1oeaodsmtgvqthl36301eh612a";
-const REDIRECT_URI = "https://www.aramislabs.click/callback";
+const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
+const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
+// Skips the Cognito sign-in page and goes straight to the Okta login
+const IDENTITY_PROVIDER = "okta";
 
 function decodeJwt(token) {
   try {
@@ -148,7 +150,8 @@ export default function App() {
       `?client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}` +
       `&response_type=code` +
       `&scope=${encodeURIComponent("openid email profile")}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&identity_provider=${encodeURIComponent(IDENTITY_PROVIDER)}`;
 
     window.location.href = loginUrl;
   }
@@ -161,7 +164,8 @@ export default function App() {
       `?response_type=code` +
       `&client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&scope=${encodeURIComponent("openid email profile")}`;
+      `&scope=${encodeURIComponent("openid email profile")}` +
+      `&identity_provider=${encodeURIComponent(IDENTITY_PROVIDER)}`;
 
     window.location.href = url;
   }
