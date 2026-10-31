@@ -17,14 +17,10 @@ Parameters:
     Type: String
     Default: "prod"
 
-  # Cognito User Pool and App Client IDs used for API Gateway JWT authorizer
-  CognitoUserPoolId:
+  # Cognito Hosted UI domain prefix, must match the redirect URI registered in Okta
+  CognitoDomainPrefix:
     Type: String
-    Default: eu-west-1_mPYvyTZ3z
-
-  CognitoAppClientId:
-    Type: String
-    Default: 3pir0n7u4bmk3hnhaao24rvbee  
+    Default: "app-global-prd-euw1"
 
   # S3 bucket and prefix where all nested CloudFormation templates are stored
   TemplateBucket:
@@ -140,6 +136,12 @@ Resources:
         # Task role for app permissions; execution role for ECS control plane operations
         EcsTaskRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-task-role"
         EcsExecutionRoleArn: "arn:aws:iam::181317788381:role/app-global-ecs-exec-role"
+        # Blue/green deployment group; names must match the Deploy_R2 stage of the backend pipeline
+        AlbTestListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerTesteArn
+        CodeDeployApplicationName: "DG_R2"
+        CodeDeployGroupName: "DG_R2"
+        # Region 2 receives a version already validated in region 1, so it shifts all at once
+        CodeDeployConfigName: "CodeDeployDefault.ECSAllAtOnce"
   
   # VPC Link bridges public API Gateway to the internal ALB inside the private VPC
   VpcLinkStack:
@@ -151,6 +153,16 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds              
+
+  # Cognito User Pool federated with Okta (OIDC); issues the JWTs validated by API Gateway
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/cognito.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        DomainPrefix: !Ref CognitoDomainPrefix
 
   # REST API with Cognito JWT authorizer routing through VPC Link → ALB → ECS
   ApiGatewayStack:
@@ -169,8 +181,8 @@ Resources:
           # ACM certificate must be in the same region as the API Gateway
           CertificateArn: arn:aws:acm:eu-west-1:181317788381:certificate/fd552695-b3e3-44c4-96a8-cc7cd918d3cb
           # Validates JWT tokens issued by the Okta-federated Cognito User Pool
-          CognitoUserPoolId: !Ref CognitoUserPoolId
-          CognitoAppClientId: !Ref CognitoAppClientId
+          CognitoUserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+          CognitoAppClientId: !GetAtt CognitoStack.Outputs.AppClientId
 
   # S3 bucket hosting static frontend assets, used as the CloudFront origin
   FrontendStack:

@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Cognito Stack (User Pool + Hosted UI Domain + Okta OIDC federation + App Client)"
+
+Parameters:
+  ProjectName:
+    Type: String
+  Environment:
+    Type: String
+
+  # Prefix of the Cognito Hosted UI domain: <prefix>.auth.<region>.amazoncognito.com
+  # Must match the sign-in redirect URI registered in the Okta app
+  DomainPrefix:
+    Type: String
+
+  OktaIssuer:
+    Type: String
+    Default: "https://integrator-2000963.okta.com"
+
+  OktaClientId:
+    Type: String
+    Default: "0oa19defv1yBMTAe9698"
+
+  # Secrets Manager secret (same region as the stack) holding the Okta client secret
+  OktaSecretName:
+    Type: String
+    Default: "Projeto_app_global"
+
+  OktaSecretKey:
+    Type: String
+    Default: "okta-client-secret"
+
+  CallbackUrl:
+    Type: String
+    Default: "https://www.aramislabs.click/callback"
+
+  LogoutUrl:
+    Type: String
+    Default: "https://www.aramislabs.click"
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-${Environment}-users"
+      # Users come only from Okta; no self sign-up in Cognito
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+      UserPoolTags:
+        Project: !Ref ProjectName
+        Environment: !Ref Environment
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref DomainPrefix
+      UserPoolId: !Ref UserPool
+
+  OktaIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: okta
+      ProviderType: OIDC
+      ProviderDetails:
+        client_id: !Ref OktaClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${OktaSecretName}:SecretString:${OktaSecretKey}}}"
+        oidc_issuer: !Ref OktaIssuer
+        authorize_scopes: "openid email profile"
+        attributes_request_method: GET
+      AttributeMapping:
+        email: email
+        name: name
+
+  AppClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: OktaIdentityProvider
+    Properties:
+      ClientName: App_global
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      CallbackURLs:
+        - !Ref CallbackUrl
+      LogoutURLs:
+        - !Ref LogoutUrl
+      SupportedIdentityProviders:
+        - okta
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+Outputs:
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref UserPool
+
+  AppClientId:
+    Description: "Cognito App Client ID (used as JWT audience)"
+    Value: !Ref AppClient
+
+  HostedUiUrl:
+    Description: "Cognito Hosted UI base URL"
+    Value: !Sub "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
