@@ -15,7 +15,11 @@ Parameters:
     
   S3WebsiteEndpoint2:
     Type: String
-    Default: aramis-app-global-regiao02-prod.s3-website-eu-west-1.amazonaws.com 
+    Default: aramis-app-global-regiao02-prod.s3-website-eu-west-1.amazonaws.com
+
+  HostedZoneId:
+    Type: String
+    Default: Z00421932FD8154X80J2A
 
 Resources:
 
@@ -138,6 +142,17 @@ Resources:
           MinimumProtocolVersion: TLSv1.2_2021
 #  Attaches the WAF WebACL to inspect all incoming requests at the edge
         WebACLId: !GetAtt WebACL.Arn
+
+# Alias record for the site; Z2FDTNDATAQYW2 is the fixed hosted zone ID of every CloudFront distribution
+  SiteAliasRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub "${DomainName}."
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
 
 Outputs:
   CloudFrontURL:
