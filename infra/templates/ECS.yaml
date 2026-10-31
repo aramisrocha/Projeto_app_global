@@ -116,7 +116,32 @@ Parameters:
 
   EcsAutoScalingRoleArn:
     Type: String
-    Default: "arn:aws:iam::181317788381:role/app-global-ecs-autoscaling-role"    
+    Default: "arn:aws:iam::181317788381:role/app-global-ecs-autoscaling-role"
+
+  # CodeDeploy blue/green — used only when DeploymentControllerType is CODE_DEPLOY
+  # The application is created outside the stack and referenced by name from the pipeline
+  AlbTestListenerArn:
+    Type: String
+    Default: ""
+
+  CodeDeployApplicationName:
+    Type: String
+    Default: ""
+
+  CodeDeployGroupName:
+    Type: String
+    Default: ""
+
+  CodeDeployServiceRoleArn:
+    Type: String
+    Default: "arn:aws:iam::181317788381:role/Codedeploy_APP_GLOBAL"
+
+  CodeDeployConfigName:
+    Type: String
+    Default: "CodeDeployDefault.ECSAllAtOnce"
+
+Conditions:
+  UseCodeDeploy: !Equals [!Ref DeploymentControllerType, "CODE_DEPLOY"]
 
 Resources:
 
@@ -318,6 +343,45 @@ Resources:
         ScaleOutCooldown: 60
         PredefinedMetricSpecification:
           PredefinedMetricType: ECSServiceAverageMemoryUtilization
+
+  # Blue/green deployment group — recreated with the stack so it always points to the current listeners
+  # Production traffic shifts on the main listener; the test listener reaches the new task set first
+  DeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Condition: UseCodeDeploy
+    Properties:
+      ApplicationName: !Ref CodeDeployApplicationName
+      DeploymentGroupName: !Ref CodeDeployGroupName
+      ServiceRoleArn: !Ref CodeDeployServiceRoleArn
+      DeploymentConfigName: !Ref CodeDeployConfigName
+      DeploymentStyle:
+        DeploymentType: BLUE_GREEN
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+      BlueGreenDeploymentConfiguration:
+        DeploymentReadyOption:
+          ActionOnTimeout: CONTINUE_DEPLOYMENT
+          WaitTimeInMinutes: 0
+        TerminateBlueInstancesOnDeploymentSuccess:
+          Action: TERMINATE
+          TerminationWaitTimeInMinutes: 10
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ECSServices:
+        - ClusterName: !Ref EcsCluster
+          ServiceName: !GetAtt EcsService.Name
+      LoadBalancerInfo:
+        TargetGroupPairInfoList:
+          - TargetGroups:
+              - Name: !GetAtt AppTargetGroupBlue.TargetGroupName
+              - Name: !GetAtt AppTargetGroupGreen.TargetGroupName
+            ProdTrafficRoute:
+              ListenerArns:
+                - !Ref AlbListenerArn
+            TestTrafficRoute:
+              ListenerArns:
+                - !Ref AlbTestListenerArn
 
 Outputs:
   ClusterName:

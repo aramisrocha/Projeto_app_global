@@ -104,6 +104,10 @@ Outputs:
     Description: "ALB HTTP Listener ARN"
     Value: !Ref AlbHttpListener
 
+  AlbHttpListenerTesteArn:
+    Description: "ALB test listener ARN (port 8080), used by CodeDeploy blue/green"
+    Value: !Ref AlbHttpListenerTeste
+
   AlbArn:
     Description: "ALB ARN"
     Value: !Ref ApplicationLoadBalancer

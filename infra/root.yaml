@@ -49,6 +49,11 @@ Parameters:
     Type: String
     Default: www.aramislabs.click
 
+  # Cognito Hosted UI domain prefix, must match the redirect URI registered in Okta
+  CognitoDomainPrefix:
+    Type: String
+    Default: "app-global-prd-use1"
+
 Resources:
 
   # Foundation layer — VPC, private subnets, and route tables
@@ -125,6 +130,12 @@ Resources:
         HealthCheckPath: "/health"
         EnvironmentEmployeesTable: "Employees"
         EnvironmentClockTable: "ClockRecords"
+        # Blue/green deployment group; names must match the Deploy stage of the backend pipeline
+        AlbTestListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerTesteArn
+        CodeDeployApplicationName: "Projeto_APP_global"
+        CodeDeployGroupName: "Codedeploy_app_global_DG"
+        # Region 1 validates each release first, shifting 10% of traffic per minute
+        CodeDeployConfigName: "CodeDeployDefault.ECSLinear10PercentEvery1Minutes"
 
   # VPC Link bridges API Gateway HTTP API to the internal ALB
   VpcLinkStack:
@@ -136,6 +147,16 @@ Resources:
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
+
+  # Cognito User Pool federated with Okta (OIDC); issues the JWTs validated by API Gateway
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: templates/cognito.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        DomainPrefix: !Ref CognitoDomainPrefix
 
   # API Gateway with JWT authorization, custom domain, and VPC Link integration
   # DependsOn ensures VPC Link and ALB are ready before routes are created
@@ -153,6 +174,9 @@ Resources:
         AlbHttpListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerArn
         ApiCustomDomainName: apiglobal.aramislabs.click
         CertificateArn: arn:aws:acm:us-east-1:181317788381:certificate/fae7c3ad-e22b-4cc1-a055-f32bd357e039
+        # Validates JWT tokens issued by the Okta-federated Cognito User Pool
+        CognitoUserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+        CognitoAppClientId: !GetAtt CognitoStack.Outputs.AppClientId
 
   # S3 bucket configured for static website hosting — serves the frontend SPA
   FrontendStack:
