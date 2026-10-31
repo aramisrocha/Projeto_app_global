@@ -35,6 +35,11 @@ Parameters:
     Type: String
     Default: Z00421932FD8154X80J2A
 
+  # Global API name shared by both regions; Route 53 latency routing picks the closest healthy region
+  GlobalApiDomainName:
+    Type: String
+    Default: api.aramislabs.click
+
 Resources:
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
@@ -128,8 +133,6 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /health"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
 
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
@@ -173,6 +176,59 @@ Resources:
         DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
         #HostedZoneId: !Select [0, !GetAtt ApiCustomDomain.RegionalHostedZoneId]
         HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+
+  # Global custom domain served by this region too, so TLS and host routing work on api.aramislabs.click
+  GlobalApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref GlobalApiDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  GlobalApiDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn:
+      - ApiStage
+      - GlobalApiCustomDomain
+    Properties:
+      ApiId: !Ref HttpApi
+      DomainName: !Ref GlobalApiDomainName
+      Stage: !Ref ApiStage
+      ApiMappingKey: ""
+
+  # End-to-end health check through API Gateway, VPC Link, ALB and ECS on the public /health route
+  ApiHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    DependsOn: ApiCustomDomainRecord
+    Properties:
+      HealthCheckConfig:
+        Type: HTTPS
+        FullyQualifiedDomainName: !Ref ApiCustomDomainName
+        ResourcePath: /health
+        Port: 443
+        RequestInterval: 30
+        FailureThreshold: 3
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${Environment}-api-${AWS::Region}"
+
+  # Latency record for this region; Route 53 drops it while the health check fails, sending users to the other region
+  GlobalApiLatencyRecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: GlobalApiDomainMapping
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub "${GlobalApiDomainName}."
+      Type: A
+      SetIdentifier: !Sub "api-${AWS::Region}"
+      Region: !Ref AWS::Region
+      HealthCheckId: !Ref ApiHealthCheck
+      AliasTarget:
+        DNSName: !GetAtt GlobalApiCustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt GlobalApiCustomDomain.RegionalHostedZoneId
+        EvaluateTargetHealth: false
 
 Outputs:
   HttpApiId:
