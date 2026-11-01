@@ -1,12 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 from boto3.dynamodb.conditions import Key
 
 import boto3
+import json
 import os
+import urllib.request
 
 
 app = FastAPI(title="Registro de Ponto - Global Lab")
@@ -63,6 +65,28 @@ print("CLOCK_TABLE =", CLOCK_TABLE)
 sts = boto3.client("sts", region_name=AWS_REGION)
 print("CALLER_IDENTITY =", sts.get_caller_identity())
 
+# Friendly names shown by the frontend region indicator
+REGION_NAMES = {
+    "us-east-1": "N. Virginia",
+    "eu-west-1": "Irlanda",
+}
+
+
+def detect_availability_zone():
+    # ECS task metadata endpoint v4 reports the AZ where this Fargate task runs
+    metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4")
+    if not metadata_uri:
+        return None
+    try:
+        with urllib.request.urlopen(f"{metadata_uri}/task", timeout=2) as resp:
+            return json.load(resp).get("AvailabilityZone")
+    except Exception:
+        return None
+
+
+AVAILABILITY_ZONE = detect_availability_zone()
+print("AVAILABILITY_ZONE =", AVAILABILITY_ZONE)
+
 # ==== MODELOS ====
 
 class EmployeeCreate(BaseModel):
@@ -81,13 +105,17 @@ class Employee(BaseModel):
 
 class ClockCreate(BaseModel):
     employeeId: str
-    type: str  # "IN" ou "OUT"
+    # "IN" ou "OUT"; quando omitido, alterna a partir do último registro
+    type: Optional[str] = None
 
 
 class ClockRecord(BaseModel):
     employeeId: str
     timestampUtc: str
     type: str
+    # Região onde o ponto foi registrado (registros antigos não têm)
+    region: Optional[str] = None
+    employeeName: Optional[str] = None
 
 
 # ==== ROTAS DE FUNCIONÁRIO ====
@@ -108,11 +136,20 @@ def create_employee(emp: EmployeeCreate):
 def list_employees():
     resp = employees_table.scan()
     items = resp.get("Items", [])
-    # DynamoDB não garante ordenação, mas pra lab não tem problema
-    return items
+    return sorted(items, key=lambda e: e.get("name", "").lower())
 
 
 # ==== ROTAS DE REGISTRO DE PONTO ====
+
+def last_clock_record(employee_id: str):
+    resp = clock_table.query(
+        KeyConditionExpression=Key("employeeId").eq(employee_id),
+        Limit=1,
+        ScanIndexForward=False,
+    )
+    items = resp.get("Items", [])
+    return items[0] if items else None
+
 
 @app.post("/clock", response_model=ClockRecord)
 def register_clock(clock: ClockCreate):
@@ -121,20 +158,36 @@ def register_clock(clock: ClockCreate):
     if "Item" not in emp_resp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
+    record_type = clock.type
+    if record_type is None:
+        # Alterna: depois de uma entrada vem uma saída, e vice-versa
+        last = last_clock_record(clock.employeeId)
+        record_type = "OUT" if last and last.get("type") == "IN" else "IN"
+
+    if record_type not in ("IN", "OUT"):
+        raise HTTPException(status_code=400, detail="type must be 'IN' or 'OUT'")
+
     # Timestamp em UTC
     now_utc = datetime.now(timezone.utc).isoformat()
-
-    if clock.type not in ("IN", "OUT"):
-        raise HTTPException(status_code=400, detail="type must be 'IN' or 'OUT'")
 
     item = {
         "employeeId": clock.employeeId,
         "timestampUtc": now_utc,
-        "type": clock.type,
+        "type": record_type,
+        "region": AWS_REGION,
     }
 
     clock_table.put_item(Item=item)
-    return item
+    return {**item, "employeeName": emp_resp["Item"].get("name")}
+
+
+@app.get("/clock", response_model=List[ClockRecord])
+def list_recent_clock_records(limit: int = 30):
+    # Últimos registros da equipe inteira, para a visão administrativa
+    items = clock_table.scan().get("Items", [])
+    names = {e["id"]: e.get("name") for e in employees_table.scan().get("Items", [])}
+    items.sort(key=lambda i: i["timestampUtc"], reverse=True)
+    return [{**i, "employeeName": names.get(i["employeeId"])} for i in items[:limit]]
 
 
 #@app.get("/clock/{employee_id}", response_model=List[ClockRecord])
@@ -153,14 +206,20 @@ def register_clock(clock: ClockCreate):
 def list_clock_records(employee_id: str):
     resp = clock_table.query(
         KeyConditionExpression=Key("employeeId").eq(employee_id),
-        Limit=20,
+        Limit=50,
         ScanIndexForward=False,
     )
     return resp.get("Items", [])
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # Public route: used by ALB/Route 53 health checks and by the frontend region indicator
+    return {
+        "status": "ok",
+        "region": AWS_REGION,
+        "regionName": REGION_NAMES.get(AWS_REGION, AWS_REGION),
+        "availabilityZone": AVAILABILITY_ZONE,
+    }
 
 
 print("AWS_REGION =", os.getenv("AWS_REGION"))
