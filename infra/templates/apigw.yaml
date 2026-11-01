@@ -133,6 +133,8 @@ Resources:
       ApiId: !Ref HttpApi
       RouteKey: "GET /health"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
+      # Public route for Route 53 health checks; NONE must be explicit, removing the property keeps the old JWT
+      AuthorizationType: NONE
 
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
