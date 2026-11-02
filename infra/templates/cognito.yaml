@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Cognito Stack (User Pool + Hosted UI Domain + Okta OIDC federation + App Client)"
+Description: "Cognito Stack (User Pool + Hosted UI Domain + Okta OIDC federation + local users as plan B + App Client)"
 
 Parameters:
   ProjectName:
@@ -37,14 +37,61 @@ Parameters:
     Type: String
     Default: "https://www.aramislabs.click"
 
+  # Plan B: lets users created directly in Cognito sign in when Okta is down
+  EnableLocalUsers:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  # Copies every Okta user, on login, to a disabled local user in the pools of all regions
+  EnableOktaReplication:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+
+  ReplicaRegions:
+    Type: String
+    Default: "us-east-1,eu-west-1"
+
+  # Same name in every region: the replication Lambda finds each pool through it
+  PoolParameterName:
+    Type: String
+    Default: "/app-global/cognito/user-pool-id"
+
+Conditions:
+  LocalUsersEnabled: !Equals [!Ref EnableLocalUsers, "true"]
+  ReplicationEnabled: !And
+    - !Condition LocalUsersEnabled
+    - !Equals [!Ref EnableOktaReplication, "true"]
+
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub "${ProjectName}-${Environment}-users"
-      # Users come only from Okta; no self sign-up in Cognito
+      # Users come from Okta; local (plan B) users are created only by an admin, no self sign-up
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      LambdaConfig: !If
+        - ReplicationEnabled
+        - PreTokenGeneration: !GetAtt OktaReplicaFunction.Arn
+        - !Ref AWS::NoValue
       Schema:
         - Name: email
           AttributeDataType: String
@@ -53,6 +100,138 @@ Resources:
       UserPoolTags:
         Project: !Ref ProjectName
         Environment: !Ref Environment
+
+  UserPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Ref PoolParameterName
+      Type: String
+      Value: !Ref UserPool
+      Description: "Cognito User Pool ID of this region (read by the Okta replication Lambda)"
+
+  # Plan B automation: on each Okta login (Pre token generation), makes sure a local user
+  # with the same e-mail exists, disabled, in the pool of every region. Never blocks the login.
+  OktaReplicaRole:
+    Type: AWS::IAM::Role
+    Condition: ReplicationEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: okta-replica
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminDisableUser
+                Resource: !Sub "arn:aws:cognito-idp:*:${AWS::AccountId}:userpool/*"
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter${PoolParameterName}"
+
+  OktaReplicaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: ReplicationEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProjectName}-${Environment}-okta-replica"
+      RetentionInDays: 14
+
+  OktaReplicaFunction:
+    Type: AWS::Lambda::Function
+    Condition: ReplicationEnabled
+    DependsOn: OktaReplicaLogGroup
+    Properties:
+      FunctionName: !Sub "${ProjectName}-${Environment}-okta-replica"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt OktaReplicaRole.Arn
+      Timeout: 5
+      MemorySize: 256
+      Environment:
+        Variables:
+          POOL_PARAMETER: !Ref PoolParameterName
+          REPLICA_REGIONS: !Ref ReplicaRegions
+      Code:
+        ZipFile: |
+          import json, os, secrets, string
+          import boto3
+          from botocore.config import Config
+
+          CFG = Config(connect_timeout=1, read_timeout=2, retries={"mode": "standard", "total_max_attempts": 1})
+          PARAM = os.environ["POOL_PARAMETER"]
+          REGIONS = [r.strip() for r in os.environ["REPLICA_REGIONS"].split(",") if r.strip()]
+          POOLS = {}
+
+
+          def pool_id(region):
+              if region not in POOLS:
+                  ssm = boto3.client("ssm", region_name=region, config=CFG)
+                  POOLS[region] = ssm.get_parameter(Name=PARAM)["Parameter"]["Value"]
+              return POOLS[region]
+
+
+          # Random password nobody knows; the user sets a real one with "forgot password"
+          def random_password():
+              chars = string.ascii_letters + string.digits + "!@#$%&*"
+              return "Aa1!" + "".join(secrets.choice(chars) for _ in range(28))
+
+
+          def replicate(region, email, name):
+              idp = boto3.client("cognito-idp", region_name=region, config=CFG)
+              pool = pool_id(region)
+              try:
+                  idp.admin_get_user(UserPoolId=pool, Username=email)
+                  return
+              except idp.exceptions.UserNotFoundException:
+                  pass
+
+              attrs = [{"Name": "email", "Value": email}, {"Name": "email_verified", "Value": "true"}]
+              if name:
+                  attrs.append({"Name": "name", "Value": name})
+              idp.admin_create_user(UserPoolId=pool, Username=email, UserAttributes=attrs,
+                                    TemporaryPassword=random_password(), MessageAction="SUPPRESS")
+              idp.admin_set_user_password(UserPoolId=pool, Username=email,
+                                          Password=random_password(), Permanent=True)
+              idp.admin_disable_user(UserPoolId=pool, Username=email)
+              print(json.dumps({"replicated": email, "region": region}))
+
+
+          def handler(event, context):
+              attrs = event.get("request", {}).get("userAttributes", {})
+              federated = attrs.get("cognito:user_status") == "EXTERNAL_PROVIDER" or "identities" in attrs
+              email = (attrs.get("email") or "").lower()
+              if not federated or not email or event.get("triggerSource") == "TokenGeneration_RefreshTokens":
+                  return event
+
+              for region in REGIONS:
+                  # Cognito waits at most 5 s for the trigger; leave room to return
+                  if context.get_remaining_time_in_millis() < 3000:
+                      break
+                  try:
+                      replicate(region, email, attrs.get("name"))
+                  except Exception as err:
+                      print(json.dumps({"error": str(err), "region": region, "email": email}))
+              return event
+
+  OktaReplicaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: ReplicationEnabled
+    Properties:
+      FunctionName: !GetAtt OktaReplicaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
 
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -94,8 +273,12 @@ Resources:
         - !Ref CallbackUrl
       LogoutURLs:
         - !Ref LogoutUrl
-      SupportedIdentityProviders:
-        - okta
+      # COGNITO = local users of this pool (plan B if Okta is unavailable)
+      SupportedIdentityProviders: !If
+        - LocalUsersEnabled
+        - - okta
+          - COGNITO
+        - - okta
       ExplicitAuthFlows:
         - ALLOW_REFRESH_TOKEN_AUTH
 
