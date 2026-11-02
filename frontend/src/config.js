@@ -33,11 +33,44 @@ export const REGIONS = {
   },
 };
 
-export const TIMEZONES = [
-  "America/Sao_Paulo",
-  "America/New_York",
-  "Europe/Dublin",
-  "Europe/Lisbon",
-  "Europe/London",
-  "UTC",
-];
+// Domain values; the backend validates the same lists
+export const CATEGORIES = {
+  NOTEBOOK: "Notebook",
+  MONITOR: "Monitor",
+  SERVER: "Servidor",
+  PHONE: "Celular",
+  NETWORK: "Rede",
+  LICENSE: "Licença de software",
+};
+
+export const SITES = ["São Paulo", "Nova York", "Dublin", "Lisboa", "Londres"];
+
+export const STATUSES = {
+  AVAILABLE: "Disponível",
+  IN_USE: "Em uso",
+  MAINTENANCE: "Em manutenção",
+  RETIRED: "Baixado",
+};
+
+export const EVENT_LABELS = {
+  CREATED: "Cadastro",
+  ASSIGNED: "Atribuição",
+  RETURNED: "Devolução",
+  MAINTENANCE: "Manutenção",
+  RETIRED: "Baixa",
+};
+
+// Actions shown for each status, in the order of the buttons
+export const ACTIONS_BY_STATUS = {
+  AVAILABLE: ["ASSIGN", "MAINTENANCE", "RETIRE"],
+  IN_USE: ["RETURN", "MAINTENANCE"],
+  MAINTENANCE: ["RETURN", "RETIRE"],
+  RETIRED: [],
+};
+
+export const ACTION_LABELS = {
+  ASSIGN: "Atribuir",
+  RETURN: "Devolver ao estoque",
+  MAINTENANCE: "Enviar para manutenção",
+  RETIRE: "Dar baixa",
+};

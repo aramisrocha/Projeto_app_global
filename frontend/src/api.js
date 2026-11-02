@@ -5,11 +5,6 @@ export class SessionExpiredError extends Error {}
 // The region did not answer (network failure or 5xx): a hint to check its health right away
 export class RegionUnavailableError extends Error {}
 
-const MESSAGES = {
-  "Employee not found": "Matrícula não encontrada.",
-  "Employee ID already exists": "Já existe um funcionário com essa matrícula.",
-};
-
 // Public endpoint: tells which region (and AZ) answered, and how long it took
 export async function fetchHealth(baseUrl) {
   const started = performance.now();
@@ -51,19 +46,23 @@ export function createApi(regionCode, token) {
       } catch {
         // Body is not JSON
       }
-      throw new Error(MESSAGES[detail] || detail || `Erro ${response.status}`);
+      // Validation errors from FastAPI come as a list; the backend's own messages are text
+      throw new Error(typeof detail === "string" ? detail : `Erro ${response.status}`);
     }
 
     return response.json();
   }
 
   return {
-    listEmployees: () => request("/employees"),
-    createEmployee: (employee) =>
-      request("/employees", { method: "POST", body: JSON.stringify(employee) }),
-    listRecords: (employeeId) => request(`/clock/${encodeURIComponent(employeeId)}`),
-    listRecentRecords: () => request("/clock"),
-    registerClock: (employeeId, type) =>
-      request("/clock", { method: "POST", body: JSON.stringify({ employeeId, type }) }),
+    dashboard: () => request("/dashboard"),
+    listAssets: (filters = {}) => {
+      const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+      return request(`/assets${params.size ? `?${params}` : ""}`);
+    },
+    getAsset: (id) => request(`/assets/${encodeURIComponent(id)}`),
+    createAsset: (asset) => request("/assets", { method: "POST", body: JSON.stringify(asset) }),
+    changeAsset: (id, change) =>
+      request(`/assets/${encodeURIComponent(id)}/actions`, { method: "POST", body: JSON.stringify(change) }),
+    listEvents: (limit = 30) => request(`/events?limit=${limit}`),
   };
 }

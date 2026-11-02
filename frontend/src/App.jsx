@@ -3,7 +3,7 @@ import { DEFAULT_REGION, GLOBAL_API_URL, REGIONS } from "./config.js";
 import { clearSession, completeLogin, getSession, login, logout } from "./auth.js";
 import { createApi, fetchHealth, RegionUnavailableError, SessionExpiredError } from "./api.js";
 import { Footer, Header, LoginScreen, Notice } from "./components.jsx";
-import { HistoryTab, PunchTab, TeamTab } from "./tabs.jsx";
+import { ActivityTab, AssetsTab, DashboardTab } from "./tabs.jsx";
 
 const MODE_KEY = "ponto.regionMode";
 const FAILOVER_KEY = "ponto.failover";
@@ -14,9 +14,9 @@ const FAILURES_BEFORE_SWITCH = 2;
 const FAILOVER_REDIRECT_MS = 2500;
 
 const TABS = [
-  ["punch", "Registrar ponto"],
-  ["history", "Histórico"],
-  ["team", "Equipe"],
+  ["dashboard", "Painel"],
+  ["assets", "Ativos"],
+  ["activity", "Movimentações"],
 ];
 
 function useNow() {
@@ -200,7 +200,6 @@ export default function App() {
       <Workspace
         key={session.idToken}
         session={session}
-        now={now}
         onNotice={setNotice}
         onSessionExpired={onSessionExpired}
         onRegionTrouble={onRegionTrouble}
@@ -229,10 +228,10 @@ export default function App() {
   );
 }
 
-function Workspace({ session, now, onNotice, onSessionExpired, onRegionTrouble }) {
+function Workspace({ session, onNotice, onSessionExpired, onRegionTrouble }) {
   const api = useMemo(() => createApi(session.region, session.idToken), [session]);
-  const [tab, setTab] = useState("punch");
-  const [employees, setEmployees] = useState(null);
+  const [tab, setTab] = useState("dashboard");
+  const [selectedAsset, setSelectedAsset] = useState(null);
 
   const onError = useCallback(
     (err) => {
@@ -243,27 +242,18 @@ function Workspace({ session, now, onNotice, onSessionExpired, onRegionTrouble }
     [onNotice, onSessionExpired, onRegionTrouble]
   );
 
-  const loadEmployees = useCallback(() => {
-    api
-      .listEmployees()
-      .then(setEmployees)
-      .catch((err) => {
-        setEmployees([]);
-        onError(err);
-      });
-  }, [api, onError]);
+  const openAsset = useCallback((id) => {
+    setSelectedAsset(id);
+    setTab("assets");
+  }, []);
 
-  useEffect(loadEmployees, [loadEmployees]);
-
-  const email = session.user.email?.toLowerCase();
-  const me = employees?.find((e) => e.email && e.email.toLowerCase() === email);
-  const shared = { api, now, onError, onNotice, onGoTeam: () => setTab("team") };
+  const shared = { api, onError, onNotice, onOpenAsset: openAsset };
 
   return (
     <section className="workspace">
       <div className="workspace-head">
         <div>
-          <p className="eyebrow">Olá, {me?.name ?? session.user.name}</p>
+          <p className="eyebrow">Olá, {session.user.name}</p>
           <h1>{TABS.find(([id]) => id === tab)[1]}</h1>
         </div>
         <nav className="tabs" aria-label="Seções">
@@ -279,14 +269,12 @@ function Workspace({ session, now, onNotice, onSessionExpired, onRegionTrouble }
         </nav>
       </div>
 
-      {employees === null ? (
-        <div className="card loading-card">Carregando…</div>
-      ) : tab === "punch" ? (
-        <PunchTab {...shared} employees={employees} me={me} userEmail={session.user.email} />
-      ) : tab === "history" ? (
-        <HistoryTab {...shared} employees={employees} me={me} />
+      {tab === "dashboard" ? (
+        <DashboardTab {...shared} />
+      ) : tab === "assets" ? (
+        <AssetsTab {...shared} selectedId={selectedAsset} onSelect={setSelectedAsset} />
       ) : (
-        <TeamTab {...shared} employees={employees} userEmail={session.user.email} onReload={loadEmployees} />
+        <ActivityTab {...shared} />
       )}
     </section>
   );

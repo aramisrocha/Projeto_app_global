@@ -73,10 +73,10 @@ export function Header({ region, health, mode, onModeChange, session, onLogout }
   return (
     <header className="header">
       <div className="brand">
-        <span className="brand-mark" aria-hidden="true">P</span>
+        <span className="brand-mark" aria-hidden="true">A</span>
         <div>
-          <strong>Ponto Global</strong>
-          <span>Registro de ponto multi-região</span>
+          <strong>Ativos Global</strong>
+          <span>Controle de ativos corporativos multi-região</span>
         </div>
       </div>
 
@@ -124,9 +124,15 @@ export function LoginScreen({ now, region, health, onLogin }) {
   return (
     <section className="login">
       <div className="login-card">
-        <p className="eyebrow">Registro de ponto</p>
-        <div className="clock clock-xl">{formatTime(now, undefined, true)}</div>
-        <p className="date">{formatLongDate(now)}</p>
+        <p className="eyebrow">Controle de ativos corporativos</p>
+        <h1 className="login-title">Ativos Global</h1>
+        <p className="date">
+          Inventário, atribuições e histórico de notebooks, servidores e licenças das equipes das
+          Américas e da Europa.
+        </p>
+        <p className="small muted">
+          {formatLongDate(now)} · {formatTime(now)}
+        </p>
 
         <RegionBadge region={region} health={health} large />
 
@@ -162,7 +168,7 @@ export function LoginScreen({ now, region, health, onLogin }) {
         </li>
         <li>
           <strong>Dados globais</strong>
-          <span>DynamoDB Global Tables replica cada registro</span>
+          <span>DynamoDB Global Tables replica cada movimentação</span>
         </li>
       </ul>
     </section>
