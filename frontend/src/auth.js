@@ -8,6 +8,7 @@ import {
 
 const SESSION_KEY = "ponto.session";
 const PENDING_REGION_KEY = "ponto.pendingRegion";
+const PENDING_PROVIDER_KEY = "ponto.pendingProvider";
 
 function decodeJwt(token) {
   try {
@@ -43,6 +44,7 @@ export function clearSession() {
 export function login(regionCode, provider = IDENTITY_PROVIDER) {
   const region = REGIONS[regionCode];
   localStorage.setItem(PENDING_REGION_KEY, regionCode);
+  localStorage.setItem(PENDING_PROVIDER_KEY, provider);
 
   const params = new URLSearchParams({
     client_id: region.cognitoClientId,
@@ -80,6 +82,8 @@ export async function completeLogin(code) {
 
   const session = {
     region: regionCode,
+    // Kept so a regional failover signs in again the same way (Okta or contingency user)
+    provider: localStorage.getItem(PENDING_PROVIDER_KEY) || IDENTITY_PROVIDER,
     idToken: data.id_token,
     expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
     user: {
@@ -90,6 +94,7 @@ export async function completeLogin(code) {
 
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   localStorage.removeItem(PENDING_REGION_KEY);
+  localStorage.removeItem(PENDING_PROVIDER_KEY);
   return session;
 }
 

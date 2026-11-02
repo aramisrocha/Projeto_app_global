@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEFAULT_REGION, GLOBAL_API_URL, REGIONS } from "./config.js";
 import { clearSession, completeLogin, getSession, login, logout } from "./auth.js";
-import { createApi, fetchHealth, SessionExpiredError } from "./api.js";
+import { createApi, fetchHealth, RegionUnavailableError, SessionExpiredError } from "./api.js";
 import { Footer, Header, LoginScreen, Notice } from "./components.jsx";
 import { HistoryTab, PunchTab, TeamTab } from "./tabs.jsx";
 
 const MODE_KEY = "ponto.regionMode";
+const FAILOVER_KEY = "ponto.failover";
 const HEALTH_INTERVAL_MS = 30000;
+// While the region is failing, check again sooner; switch only after consecutive failures
+const HEALTH_RETRY_MS = 10000;
+const FAILURES_BEFORE_SWITCH = 2;
+const FAILOVER_REDIRECT_MS = 2500;
 
 const TABS = [
   ["punch", "Registrar ponto"],
@@ -23,14 +28,27 @@ function useNow() {
   return now;
 }
 
-// Asks the latency-routed global name which region is closest and healthy
-async function detectClosestRegion() {
+// Asks the latency-routed global name which region is closest and healthy. When avoiding a
+// failed region, the DNS may still point to it for a few minutes, so the other regions are
+// also asked directly.
+async function detectClosestRegion(avoid) {
   try {
     const health = await fetchHealth(GLOBAL_API_URL);
-    return REGIONS[health.region] ? health.region : DEFAULT_REGION;
+    if (REGIONS[health.region] && health.region !== avoid) return health.region;
   } catch {
-    return DEFAULT_REGION;
+    // Global name unavailable: fall through to the regional endpoints
   }
+
+  for (const code of Object.keys(REGIONS)) {
+    if (code === avoid) continue;
+    try {
+      await fetchHealth(REGIONS[code].apiUrl);
+      return code;
+    } catch {
+      // Try the next region
+    }
+  }
+  return avoid ?? DEFAULT_REGION;
 }
 
 export default function App() {
@@ -39,6 +57,8 @@ export default function App() {
   const [session, setSession] = useState(() => getSession());
   const [region, setRegion] = useState(null);
   const [health, setHealth] = useState(null);
+  // Bumped when an API call fails, so the health loop checks the region right away
+  const [healthNudge, setHealthNudge] = useState(0);
   const [notice, setNotice] = useState(null);
   const [completingLogin, setCompletingLogin] = useState(() =>
     new URLSearchParams(window.location.search).has("code")
@@ -58,6 +78,8 @@ export default function App() {
     [endSession]
   );
 
+  const onRegionTrouble = useCallback(() => setHealthNudge((n) => n + 1), []);
+
   // Finishes the OAuth redirect coming back from Cognito/Okta
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -73,7 +95,17 @@ export default function App() {
     }
 
     completeLogin(code)
-      .then(setSession)
+      .then((newSession) => {
+        setSession(newSession);
+        const failover = JSON.parse(localStorage.getItem(FAILOVER_KEY) || "null");
+        localStorage.removeItem(FAILOVER_KEY);
+        if (failover) {
+          setNotice({
+            kind: "warning",
+            text: `${REGIONS[failover.from].name} ficou indisponível. Você agora está em ${REGIONS[newSession.region].name}, com os mesmos dados.`,
+          });
+        }
+      })
       .catch((err) => setNotice({ kind: "error", text: err.message }))
       .finally(() => setCompletingLogin(false));
   }, []);
@@ -98,37 +130,59 @@ export default function App() {
     };
   }, [session, mode, completingLogin]);
 
-  // Health of the region in use; in automatic mode, moves to the other region when it stops answering
+  // Health of the region in use. In automatic mode, after consecutive failures it moves to the
+  // other region; a signed-in user is sent to sign in there, which is quick because the Okta
+  // session is still active.
   useEffect(() => {
     if (!region) return undefined;
     let cancelled = false;
-    setHealth(null);
+    let timer;
+    let failures = 0;
+
+    function schedule(ms) {
+      timer = setTimeout(check, ms);
+    }
+
+    async function failOver() {
+      const target = await detectClosestRegion(region);
+      if (cancelled || target === region) return false;
+
+      const from = REGIONS[region].name;
+      const to = REGIONS[target].name;
+      if (session) {
+        localStorage.setItem(FAILOVER_KEY, JSON.stringify({ from: region, to: target }));
+        clearSession();
+        setNotice({ kind: "warning", text: `${from} não respondeu. Transferindo sua sessão para ${to}…` });
+        setTimeout(() => login(target, session.provider), FAILOVER_REDIRECT_MS);
+      } else {
+        setNotice({ kind: "warning", text: `${from} não respondeu. O sistema passou para ${to}.` });
+        setRegion(target);
+      }
+      return true;
+    }
 
     async function check() {
       try {
         const data = await fetchHealth(REGIONS[region].apiUrl);
-        if (!cancelled) setHealth({ ok: true, ...data });
+        if (cancelled) return;
+        failures = 0;
+        setHealth({ ok: true, ...data });
+        schedule(HEALTH_INTERVAL_MS);
       } catch (err) {
         if (cancelled) return;
+        failures += 1;
         setHealth({ ok: false, error: err.message });
-        if (mode !== "auto") return;
-
-        const closest = await detectClosestRegion();
-        if (cancelled || closest === region) return;
-        const message = `${REGIONS[region].name} não respondeu. O sistema passou para ${REGIONS[closest].name}.`;
-        if (session) endSession(`${message} Entre novamente para continuar.`);
-        else setNotice({ kind: "warning", text: message });
-        setRegion(closest);
+        if (mode === "auto" && failures >= FAILURES_BEFORE_SWITCH && (await failOver())) return;
+        if (!cancelled) schedule(HEALTH_RETRY_MS);
       }
     }
 
     check();
-    const timer = setInterval(check, HEALTH_INTERVAL_MS);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [region, mode, session, endSession]);
+  }, [region, mode, session, healthNudge]);
 
   function changeMode(newMode) {
     localStorage.setItem(MODE_KEY, newMode);
@@ -149,6 +203,7 @@ export default function App() {
         now={now}
         onNotice={setNotice}
         onSessionExpired={onSessionExpired}
+        onRegionTrouble={onRegionTrouble}
       />
     );
   } else {
@@ -174,17 +229,18 @@ export default function App() {
   );
 }
 
-function Workspace({ session, now, onNotice, onSessionExpired }) {
+function Workspace({ session, now, onNotice, onSessionExpired, onRegionTrouble }) {
   const api = useMemo(() => createApi(session.region, session.idToken), [session]);
   const [tab, setTab] = useState("punch");
   const [employees, setEmployees] = useState(null);
 
   const onError = useCallback(
     (err) => {
-      if (err instanceof SessionExpiredError) onSessionExpired();
-      else onNotice({ kind: "error", text: err.message });
+      if (err instanceof SessionExpiredError) return onSessionExpired();
+      if (err instanceof RegionUnavailableError) onRegionTrouble();
+      onNotice({ kind: "error", text: err.message });
     },
-    [onNotice, onSessionExpired]
+    [onNotice, onSessionExpired, onRegionTrouble]
   );
 
   const loadEmployees = useCallback(() => {

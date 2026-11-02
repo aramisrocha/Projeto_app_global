@@ -2,6 +2,9 @@ import { REGIONS } from "./config.js";
 
 export class SessionExpiredError extends Error {}
 
+// The region did not answer (network failure or 5xx): a hint to check its health right away
+export class RegionUnavailableError extends Error {}
+
 const MESSAGES = {
   "Employee not found": "Matrícula não encontrada.",
   "Employee ID already exists": "Já existe um funcionário com essa matrícula.",
@@ -20,16 +23,25 @@ export function createApi(regionCode, token) {
   const baseUrl = REGIONS[regionCode].apiUrl;
 
   async function request(path, options = {}) {
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    let response;
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      throw new RegionUnavailableError(`${REGIONS[regionCode].name} não respondeu.`);
+    }
 
     if (response.status === 401) {
       throw new SessionExpiredError("Sua sessão expirou. Entre novamente.");
+    }
+
+    if (response.status >= 500) {
+      throw new RegionUnavailableError(`${REGIONS[regionCode].name} respondeu com erro ${response.status}.`);
     }
 
     if (!response.ok) {
