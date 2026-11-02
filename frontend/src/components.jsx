@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { REGIONS } from "./config.js";
+import { LOCAL_PROVIDER, REGIONS } from "./config.js";
 import { formatLongDate, formatTime } from "./time.js";
 
 export function RegionBadge({ region, health, large = false }) {
@@ -142,6 +142,13 @@ export function LoginScreen({ now, region, health, onLogin }) {
             ? `O login passa pelo Okta e pelo Cognito da região ${info.name}.`
             : "Identificando a região mais próxima de você…"}
         </p>
+        <button
+          className="btn btn-link"
+          disabled={!region || (health && !health.ok)}
+          onClick={() => onLogin(region, LOCAL_PROVIDER)}
+        >
+          Okta indisponível? Entrar com usuário de contingência
+        </button>
       </div>
 
       <ul className="highlights">

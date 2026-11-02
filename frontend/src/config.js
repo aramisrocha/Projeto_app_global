@@ -9,6 +9,9 @@ export const LOGOUT_URI = import.meta.env.VITE_LOGOUT_URI;
 // Skips the Cognito sign-in page and goes straight to the Okta login
 export const IDENTITY_PROVIDER = "okta";
 
+// Plan B: users created directly in the Cognito pool, used when Okta is unavailable
+export const LOCAL_PROVIDER = "COGNITO";
+
 export const DEFAULT_REGION = "us-east-1";
 
 export const REGIONS = {

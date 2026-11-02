@@ -39,7 +39,8 @@ export function clearSession() {
 }
 
 // Sends the user to the Cognito pool of the chosen region, which forwards to Okta
-export function login(regionCode) {
+// (or shows the Cognito sign-in page itself when the provider is LOCAL_PROVIDER)
+export function login(regionCode, provider = IDENTITY_PROVIDER) {
   const region = REGIONS[regionCode];
   localStorage.setItem(PENDING_REGION_KEY, regionCode);
 
@@ -48,7 +49,7 @@ export function login(regionCode) {
     response_type: "code",
     scope: "openid email profile",
     redirect_uri: REDIRECT_URI,
-    identity_provider: IDENTITY_PROVIDER,
+    identity_provider: provider,
   });
 
   window.location.href = `${region.cognitoDomain}/oauth2/authorize?${params}`;
