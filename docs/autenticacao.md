@@ -90,7 +90,7 @@ Limitações:
 
 2. O usuário clica em **"Okta indisponível? Entrar com usuário de contingência"**.
 3. Na tela do Cognito, usa **"Forgot your password?"** com o e-mail, recebe um código e define a senha.
-4. Entra e vê os mesmos registros de ponto, porque a aplicação identifica o funcionário pelo e-mail.
+4. Entra e vê os mesmos ativos; as movimentações que fizer ficam registradas no histórico com o mesmo e-mail do Okta.
 
 Quando o Okta voltar:
 

@@ -82,49 +82,14 @@ Resources:
       PayloadFormatVersion: "1.0"
       IntegrationUri: !Ref AlbHttpListenerArn
 
-  EmployeesGetRoute:
+# Every application route requires a valid JWT; only GET /health below is public
+  ProtectedProxyRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref HttpApi
-      RouteKey: "GET /employees"
+      RouteKey: "ANY /{proxy+}"
       Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
-
-  EmployeesPostRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: "POST /employees"
-      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
-
-  ClockGetRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: "GET /clock"
-      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
-
-  ClockPostRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: "POST /clock"
-      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
-      AuthorizerId: !Ref CognitoJwtAuthorizer
-
-  ClockEmployeeIdGetRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref HttpApi
-      RouteKey: "GET /clock/{employee_id}"
-      Target: !Sub "integrations/${AlbVpcLinkIntegration}"
-      AuthorizationType: JWT 
+      AuthorizationType: JWT
       AuthorizerId: !Ref CognitoJwtAuthorizer
 
   HealthGetRoute:
