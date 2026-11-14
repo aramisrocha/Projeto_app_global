@@ -13,6 +13,7 @@ Parameters:
 
 Resources:
 
+  # Static website hosting enabled 
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -20,6 +21,7 @@ Resources:
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: index.html
+      # Public access enabled, bucket is exposed via CloudFront, not directly
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         IgnorePublicAcls: false
@@ -29,6 +31,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-frontend"
 
+  # Allows public read on all objects, CloudFront uses this to serve frontend assets
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

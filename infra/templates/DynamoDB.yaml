@@ -1,62 +1,55 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "DynamoDB - Sistema de Pontos (single-table design) + employees/clock tables"
+Description: "DynamoDB - Points system (single-table design) + employees/clock tables (Global Tables)"
 
 Parameters:
   ProjectName:
     Type: String
-    Description: "app-global"
+    Description: "Project name"
 
   Environment:
     Type: String
     AllowedValues: [dev, hml, prd]
-    Description: "Prod"
+    Description: "Deployment environment"
 
   TableName:
     Type: String
     Default: ""
-    Description: "Opcional: nome da tabela. Se vazio, será gerado automaticamente."
+    Description: "Optional custom table name — defaults to {ProjectName}-{Environment}-points if left empty"
 
-  EnableTTL:
-    Type: String
-    AllowedValues: ["true", "false"]
-    Default: "true"
-    Description: "Habilitar TTL na tabela"
-
-  TTLAttributeName:
-    Type: String
-    Default: "ttl"
-    Description: "Nome do atributo TTL (Unix epoch em segundos)"
 
   EnablePITR:
     Type: String
     AllowedValues: ["true", "false"]
     Default: "false"
-    Description: "Habilitar Point-in-time recovery (PITR)"
+    Description: "Enable Point-in-Time Recovery (PITR)"
 
 Conditions:
+  # Resolves whether a custom table name was provided
   HasCustomTableName: !Not [!Equals [!Ref TableName, ""]]
-  TTLIsEnabled: !Equals [!Ref EnableTTL, "true"]
   PITRIsEnabled: !Equals [!Ref EnablePITR, "true"]
 
 Resources:
-  PointsTable:
-    Type: AWS::DynamoDB::Table
+
+  
+  # Points table, single-table design with GSI
+  # Replicated across us-east-1 and eu-west-1
+  PointsGlobalTable:
+    Type: AWS::DynamoDB::GlobalTable
     DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       TableName: !If
         - HasCustomTableName
         - !Ref TableName
         - !Sub "${ProjectName}-${Environment}-points"
+      # On-demand billing — no capacity planning required
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
-        # Chave primária (single-table)
         - AttributeName: PK
           AttributeType: S
         - AttributeName: SK
           AttributeType: S
-
-        # Para GSI de consultas comuns do sistema de pontos
         - AttributeName: GSI1PK
           AttributeType: S
         - AttributeName: GSI1SK
@@ -78,40 +71,52 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+      # Required for GlobalTable — streams changes to all replicas
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 
+      # Regional replicas — PITR configured per replica
+      Replicas:
+        - Region: us-east-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "points"
+        - Region: eu-west-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "points"
+
+      # Encryption at rest using AWS-managed keys
       SSESpecification:
         SSEEnabled: true
 
-      TimeToLiveSpecification: !If
-        - TTLIsEnabled
-        - AttributeName: !Ref TTLAttributeName
-          Enabled: true
-        - !Ref "AWS::NoValue"
 
-      PointInTimeRecoverySpecification: !If
-        - PITRIsEnabled
-        - PointInTimeRecoveryEnabled: true
-        - !Ref "AWS::NoValue"
 
-      Tags:
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: "points"
-
-  # === NOVAS TABELAS ===
-
-  EmployeesTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+  
+  # Employees table — keyed by id, GSI on email
+  # Replicated across us-east-1 and eu-west-1
+  EmployeesGlobalTable:
+    Type: AWS::DynamoDB::GlobalTable
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
-      #TableName: !Sub "${ProjectName}-${Environment}-employees"
-      TableName: EMPLOYEES_TABLE
+      TableName: !Sub "${ProjectName}-${Environment}-employees"
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
@@ -124,6 +129,7 @@ Resources:
         - AttributeName: id
           KeyType: HASH
 
+      # Allows lookups by email without a full table scan
       GlobalSecondaryIndexes:
         - IndexName: email-index
           KeySchema:
@@ -132,35 +138,51 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+      # Required for GlobalTable — streams changes to all replicas
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+      Replicas:
+        - Region: us-east-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "employees"
+        - Region: eu-west-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "employees"
+
       SSESpecification:
         SSEEnabled: true
 
-      TimeToLiveSpecification: !If
-        - TTLIsEnabled
-        - AttributeName: !Ref TTLAttributeName
-          Enabled: true
-        - !Ref "AWS::NoValue"
 
-      PointInTimeRecoverySpecification: !If
-        - PITRIsEnabled
-        - PointInTimeRecoveryEnabled: true
-        - !Ref "AWS::NoValue"
 
-      Tags:
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: "employees"
-
-  ClockTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
+  
+  # Clock table — keyed by employeeId + timestampUtc
+  # DeletionPolicy: Delete — clock records are audit data
+  # Replicated across us-east-1 and eu-west-1
+  ClockGlobalTable:
+    Type: AWS::DynamoDB::GlobalTable
+    DeletionPolicy: Delete
     UpdateReplacePolicy: Retain
     Properties:
-      #TableName: !Sub "${ProjectName}-${Environment}-clock"
-      TableName: CLOCK_TABLE
+      TableName: !Sub "${ProjectName}-${Environment}-clock"
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
@@ -169,71 +191,91 @@ Resources:
         - AttributeName: timestampUtc
           AttributeType: S
 
+      # Composite key — enables range queries by employee and time
       KeySchema:
         - AttributeName: employeeId
           KeyType: HASH
         - AttributeName: timestampUtc
           KeyType: RANGE
 
+      # Required for GlobalTable — streams changes to all replicas
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+      Replicas:
+        - Region: us-east-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "clock"
+        - Region: eu-west-1
+          PointInTimeRecoverySpecification: !If
+            - PITRIsEnabled
+            - PointInTimeRecoveryEnabled: true
+            - PointInTimeRecoveryEnabled: false
+          Tags:
+            - Key: Project
+              Value: !Ref ProjectName
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: "clock"
+
       SSESpecification:
         SSEEnabled: true
 
-      TimeToLiveSpecification: !If
-        - TTLIsEnabled
-        - AttributeName: !Ref TTLAttributeName
-          Enabled: true
-        - !Ref "AWS::NoValue"
-
-      PointInTimeRecoverySpecification: !If
-        - PITRIsEnabled
-        - PointInTimeRecoveryEnabled: true
-        - !Ref "AWS::NoValue"
-
-      Tags:
-        - Key: Project
-          Value: !Ref ProjectName
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: "clock"
-
 Outputs:
   PointsTableName:
-    Description: "Nome da tabela DynamoDB"
-    Value: !Ref PointsTable
+    Description: "Points table name"
+    Value: !Ref PointsGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PointsTableName"
 
   PointsTableArn:
-    Description: "ARN da tabela DynamoDB"
-    Value: !GetAtt PointsTable.Arn
+    Description: "Points table ARN"
+    Value: !GetAtt PointsGlobalTable.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-PointsTableArn"
 
   PointsTableStreamArn:
-    Description: "ARN do Stream (para integrações / global tables no futuro)"
-    Value: !GetAtt PointsTable.StreamArn
+    Description: "Points table stream ARN"
+    Value: !GetAtt PointsGlobalTable.StreamArn
 
   EmployeesTableName:
-    Description: "Nome da tabela de funcionários"
-    Value: !Ref EmployeesTable
+    Description: "Employees table name"
+    Value: !Ref EmployeesGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-EmployeesTableName"
 
   EmployeesTableArn:
-    Description: "ARN da tabela de funcionários"
-    Value: !GetAtt EmployeesTable.Arn
+    Description: "Employees table ARN"
+    Value: !GetAtt EmployeesGlobalTable.Arn
     Export:
       Name: !Sub "${ProjectName}-${Environment}-EmployeesTableArn"
 
+  EmployeesTableStreamArn:
+    Description: "Employees table stream ARN"
+    Value: !GetAtt EmployeesGlobalTable.StreamArn
+
   ClockTableName:
-    Description: "Nome da tabela de registros de ponto"
-    Value: !Ref ClockTable
+    Description: "Clock table name"
+    Value: !Ref ClockGlobalTable
     Export:
       Name: !Sub "${ProjectName}-${Environment}-ClockTableName"
 
   ClockTableArn:
-    Description: "ARN da tabela de registros de ponto"
-    Value: !GetAtt ClockTable.Arn
+    Description: "Clock table ARN"
+    Value: !GetAtt ClockGlobalTable.Arn
     Export:
-      Name: !Sub "${ProjectName}-${Environment}-ClockTableArn" 
+      Name: !Sub "${ProjectName}-${Environment}-ClockTableArn"
+
+  ClockTableStreamArn:
+    Description: "Clock table stream ARN"
+    Value: !GetAtt ClockGlobalTable.StreamArn

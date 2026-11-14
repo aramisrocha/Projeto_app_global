@@ -1,16 +1,41 @@
 {
   "family": "app-global-task",
   "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-exec-role",
+  "taskRoleArn": "arn:aws:iam::181317788381:role/app-global-ecs-task-role",
   "containerDefinitions": [
     {
-      "name": "app",
+      "name": "app-global-container",
       "image": "IMAGE_URI",
+      "essential": true,
       "portMappings": [
         {
           "containerPort": 8000,
           "protocol": "tcp"
         }
-      ]
+      ],
+      "environment": [
+        { "name": "EMPLOYEES_TABLE", "value": "app-global-prd-employees" },
+        { "name": "CLOCK_TABLE", "value": "app-global-prd-clock" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/app-global",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ]
 }

@@ -4,17 +4,24 @@ Description: Nested stack - API Gateway v2 VPC Link using VPC/Subnets from Netwo
 Parameters:
   ProjectName:
     Type: String
+
   Environment:
     Type: String
+
   VpcLinkName:
     Type: String
     Default: VPC_Link_app_global
+
   VpcId:
     Type: AWS::EC2::VPC::Id
-  PublicSubnetIds:
+
+  # Comma-separated subnet IDs, split at resource level via !Split
+  PrivateSubnetIds:
     Type: String
 
 Resources:
+
+  # Allows API Gateway VPC Link to reach the internal ALB on port 80
   VpcLinkSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -32,12 +39,13 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-${Environment}-apigw-vpc-link-sg"
 
+  # VPC Link bridges API Gateway HTTP API to the internal ALB inside the VPC
+  # Subnet IDs are split from the comma-separated parameter string
   ApiGatewayVpcLink:
     Type: AWS::ApiGatewayV2::VpcLink
     Properties:
       Name: !Sub "${VpcLinkName}-${Environment}"
-      #SubnetIds: !Split [",", { "Fn::ImportValue": { "Fn::Sub": "${ProjectName}-${Environment}-PublicSubnetIds" } }]
-      SubnetIds: !Split [",", !Ref PublicSubnetIds]
+      SubnetIds: !Split [",", !Ref PrivateSubnetIds]
       SecurityGroupIds:
         - !Ref VpcLinkSecurityGroup
       Tags:
@@ -45,6 +53,8 @@ Resources:
         Environment: !Ref Environment
 
 Outputs:
+
+  # Exported and consumed by the API Gateway module to attach routes to the VPC Link integration
   VpcLinkId:
     Description: VPC Link ID
     Value: !Ref ApiGatewayVpcLink

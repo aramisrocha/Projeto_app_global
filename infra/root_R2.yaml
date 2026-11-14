@@ -142,7 +142,9 @@ Resources:
         CodeDeployGroupName: "DG_R2"
         # Region 2 receives a version already validated in region 1, so it shifts all at once
         CodeDeployConfigName: "CodeDeployDefault.ECSAllAtOnce"
-  
+        # Scheduled peak (7h30-9h30) in the local time of the users served by this region
+        ScheduleTimezone: "Europe/Dublin"
+
   # VPC Link bridges public API Gateway to the internal ALB inside the private VPC
   VpcLinkStack:
     Type: AWS::CloudFormation::Stack
@@ -152,7 +154,7 @@ Resources:
         ProjectName: !Ref ProjectName
         Environment: !Ref Environment
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
-        PublicSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds              
+        PrivateSubnetIds: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
 
   # Cognito User Pool federated with Okta (OIDC); issues the JWTs validated by API Gateway
   CognitoStack:
