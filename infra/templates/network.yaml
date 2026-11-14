@@ -9,7 +9,8 @@ Parameters:
   Environment:
     Type: String
     Default: "prd"
-    AllowedValues: ["dev", "hml", "prd", "dr"]
+    # "prd" is used by R1 and "prod" by R2 (root_R2.yaml)
+    AllowedValues: ["dev", "hml", "prd", "prod", "dr"]
 
   # VPC CIDR block — defines the private IP address space for the entire network
   VpcCidr:
