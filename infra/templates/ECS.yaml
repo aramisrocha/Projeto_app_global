@@ -53,6 +53,39 @@ Parameters:
     Default: 10
     Description: "Maximum number of tasks for Auto Scaling"
 
+  # Shared secret CloudFront sends in X-Origin-Verify; empty disables the check in the app
+  OriginVerifySecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+  # Scheduled scaling: raises the task floor before the clock-in peak, because
+  # target tracking needs a few minutes to react to a sudden spike
+  EnableScheduledScaling:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  PeakMinTaskCount:
+    Type: Number
+    Default: 6
+    Description: "Minimum number of tasks during the peak window"
+
+  PeakStartSchedule:
+    Type: String
+    Default: "cron(30 7 ? * MON-FRI *)"
+    Description: "When the peak window starts (Application Auto Scaling cron, in ScheduleTimezone)"
+
+  PeakEndSchedule:
+    Type: String
+    Default: "cron(30 9 ? * MON-FRI *)"
+    Description: "When the peak window ends and the floor returns to MinTaskCount"
+
+  ScheduleTimezone:
+    Type: String
+    Default: "America/Sao_Paulo"
+    Description: "IANA time zone of the users served by this region (e.g. Europe/Lisbon in eu-west-1)"
+
   CPUTargetValue:
     Type: Number
     Default: 70
@@ -91,13 +124,14 @@ Parameters:
     Type: String
     Default: "/health"
 
+  # Names of the DynamoDB Global Tables created by DynamoDB.yaml ({ProjectName}-{Environment}-...)
   EnvironmentEmployeesTable:
     Type: String
-    Default: "Employees"
+    Default: "app-global-prd-employees"
 
   EnvironmentClockTable:
     Type: String
-    Default: "ClockRecords"
+    Default: "app-global-prd-clock"
 
   DeploymentControllerType:
     Type: String
@@ -142,6 +176,7 @@ Parameters:
 
 Conditions:
   UseCodeDeploy: !Equals [!Ref DeploymentControllerType, "CODE_DEPLOY"]
+  UseScheduledScaling: !Equals [!Ref EnableScheduledScaling, "true"]
 
 Resources:
 
@@ -261,9 +296,15 @@ Resources:
             StartPeriod: 10
           Environment:
             - Name: EMPLOYEES_TABLE
-              Value: "EMPLOYEES_TABLE"
+              Value: !Ref EnvironmentEmployeesTable
             - Name: CLOCK_TABLE
-              Value: "CLOCK_TABLE"
+              Value: !Ref EnvironmentClockTable
+            # The app uses the local DynamoDB replica of the region it runs in
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            # Requests that didn't come through the API CloudFront (and its WAF) are rejected
+            - Name: ORIGIN_VERIFY_SECRET
+              Value: !Ref OriginVerifySecret
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -315,6 +356,23 @@ Resources:
       RoleARN: !Ref EcsAutoScalingRoleArn
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
+      # Before the clock-in peak the floor goes up to PeakMinTaskCount, so the tasks are already
+      # running when users arrive; afterwards it drops back and target tracking scales in normally
+      ScheduledActions: !If
+        - UseScheduledScaling
+        - - ScheduledActionName: !Sub "${ProjectName}-peak-start"
+            Schedule: !Ref PeakStartSchedule
+            Timezone: !Ref ScheduleTimezone
+            ScalableTargetAction:
+              MinCapacity: !Ref PeakMinTaskCount
+              MaxCapacity: !Ref MaxTaskCount
+          - ScheduledActionName: !Sub "${ProjectName}-peak-end"
+            Schedule: !Ref PeakEndSchedule
+            Timezone: !Ref ScheduleTimezone
+            ScalableTargetAction:
+              MinCapacity: !Ref MinTaskCount
+              MaxCapacity: !Ref MaxTaskCount
+        - !Ref AWS::NoValue
 
   # Scales out after 1 min of high CPU, scales in after 2 min to avoid flapping
   ScalingPolicyCPU:

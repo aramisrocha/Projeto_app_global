@@ -49,6 +49,13 @@ Parameters:
     Type: String
     Default: www.aramislabs.click
 
+  # Shared secret CloudFront sends to the API origin (X-Origin-Verify); the app rejects requests
+  # without it, so the API WAF can't be bypassed. Use the same value in both regions. Empty disables it.
+  OriginVerifySecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+
   # Cognito Hosted UI domain prefix, must match the redirect URI registered in Okta
   CognitoDomainPrefix:
     Type: String
@@ -128,8 +135,10 @@ Resources:
         AssignPublicIp: "DISABLED"
         ImageUri: "181317788381.dkr.ecr.us-east-1.amazonaws.com/app_global:build-64"
         HealthCheckPath: "/health"
-        EnvironmentEmployeesTable: "Employees"
-        EnvironmentClockTable: "ClockRecords"
+        # Same names as the Global Tables in DynamoDB.yaml (the R2 uses the local replica of these tables)
+        EnvironmentEmployeesTable: !Sub "${ProjectName}-${Environment}-employees"
+        EnvironmentClockTable: !Sub "${ProjectName}-${Environment}-clock"
+        OriginVerifySecret: !Ref OriginVerifySecret
         # Blue/green deployment group; names must match the Deploy stage of the backend pipeline
         AlbTestListenerArn: !GetAtt AlbStack.Outputs.AlbHttpListenerTesteArn
         CodeDeployApplicationName: "Projeto_APP_global"
@@ -190,8 +199,8 @@ Resources:
         Environment: !Ref Environment
         BucketName: !Sub "aramis-app-global-regiao01-${Environment}"
 
-  # CloudFront distribution with WAF — CDN layer for the frontend S3 bucket
-  # DependsOn FrontendStack ensures the S3 origin exists before the distribution is created
+  # CloudFront distributions with WAF — one for the frontend S3 bucket, one in front of the API
+  # DependsOn FrontendStack ensures the S3 origin exists (and, through it, the API origin record)
   CloudFrontStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: FrontendStack
@@ -200,6 +209,7 @@ Resources:
       Parameters:
         BucketName: !GetAtt FrontendStack.Outputs.BucketName
         DomainName: !Ref DomainName
+        OriginVerifySecret: !Ref OriginVerifySecret
 
 Outputs:
   VpcId:
